@@ -1,0 +1,16 @@
+
+*.vcxproj
+
+*.filters
+
+*.log
+
+*.obj
+
+*.pdb
+
+*.idb
+
+*.tlog
+
+*.pch
