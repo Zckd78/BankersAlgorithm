@@ -1,8 +1,14 @@
 #pragma once
 
+#include "ResourceManager.h"
+
 class JobsDTO
 {
 public:
+
+	// Get the single instance of the Resource Manager
+	// This instance is shared across all classes.
+	ResourceManager resManager = ResourceManager::getInstance();
 
 	// Booleans to control execution of Jobs
 	bool jobsReady = false;

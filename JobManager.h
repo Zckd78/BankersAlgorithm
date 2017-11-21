@@ -13,9 +13,6 @@ class JobManager
 {
 private:
 
-	// Manager of Resources
-	ResourceManager resManager = ResourceManager::getInstance();
-	
 	// Thread for starting the jobs
 	thread threads[MAX_THREADS];
 

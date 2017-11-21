@@ -2,7 +2,7 @@
 #include "Includes.h"
 #include "ResourceManager.h"
 #include "Resource.h"
-#include "Statics.h"
+#include "Job.h"
 #include <stack>
 
 // Constructor handles adding intitial resources to their 

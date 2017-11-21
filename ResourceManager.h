@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Resource.h"
-#include "ResourceDTO.h"
+#include "Includes.h"
 #include <queue>
 
 class ResourceManager

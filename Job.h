@@ -2,7 +2,6 @@
 #include "stdafx.h"
 #include "Includes.h"
 #include "Resource.h"
-#include "ResourceManager.h"
 #include "JobsDTO.h"
 #include <stack>
 
@@ -19,10 +18,6 @@ public:
 	int resourceInitials[5];
 	// Stack of resources
 	stack<Resource> resources;
-
-	// Get the single instance of the Resource Manager
-	// This instance is shared across all classes.
-	ResourceManager resManager = ResourceManager::getInstance();
 
 	// Thread sync
 	condition_variable * cv;

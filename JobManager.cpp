@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Includes.h"
 #include "JobManager.h"
-#include "Statics.h"
+// #include "Statics.h"
 
 JobManager::JobManager()
 {

@@ -47,7 +47,7 @@ void Job::DoWork(){
 
 		// Check if we're currently in a safe state for all resources
 		// and job needs
-		if (resManager.isSafe()){
+		if (dto->resManager.isSafe()){
 
 			// while (!wouldBeSafe() ){
 			while (!dto->jobsReady){
@@ -57,7 +57,7 @@ void Job::DoWork(){
 			}
 
 			// Allocate the Resource to this Job
-			resources.push(resManager.GetResource(currentType));
+			resources.push(dto->resManager.GetResource(currentType));
 
 		}
 
