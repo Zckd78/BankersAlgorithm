@@ -3,11 +3,14 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <string>
 #include <tchar.h>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <random>
+#include <stack>
+#include <queue>
 
 #define MAX_RESOURCES 5
 #define MAX_THREADS 10
