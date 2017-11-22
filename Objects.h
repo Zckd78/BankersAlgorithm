@@ -61,14 +61,14 @@ enum ResourceType { resA, resB, resC, resD, resE, };
 class Job
 {
 public:
-
+	// Holds the initial requirements for each
+	int resourcesAcquired[5];
 	// Required resource counts
 	// Decremented as we acquire resources of that type
 	int resourceNeeds[5];
 	// Holds the initial requirements for each
 	int resourceInitials[5];
-	// Holds the initial requirements for each
-	int resourcesAcquired[5];
+	
 	// Stack of resources
 	stack<Resource> resources;
 

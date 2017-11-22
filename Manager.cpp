@@ -144,26 +144,22 @@ bool Manager::isSafe(){
 
 					// Set current iteration type
 					type = (ResourceType)t;
-
-					if (currentJob->resourceNeeds[type] <= ToBeAvail[type]){
+					int need = (currentJob->resourceNeeds[type] - currentJob->resourcesAcquired[type]);
+					if (  need <= ToBeAvail[type] ){
 						JobNeeds[type] = true;
 					}
 
-
-					// End Type loop
+				// End Type loop
 				}
 
 				// Determine if this job fits the criteria
 				if (JobNeeds[resA] && JobNeeds[resB] && JobNeeds[resC]
 					&& JobNeeds[resD] && JobNeeds[resE]){
 					foundJob = currentJob;
-					JobFound = true;
 				}
-
 
 				// End Finished Check
 			}
-
 
 			// Didn't find a job
 			if (foundJob == nullptr){
@@ -172,15 +168,15 @@ bool Manager::isSafe(){
 
 				// Determine if even one job is not finished
 				for (int i = 0; i < MAX_THREADS; i++){
-					if (!JobsFinished[i]) return false;
+					if (!JobsFinished[i]){
+						return false;
+					}
 				}
-
+				// Else return true
 				return true;
 			}
 			else {
-				// This job could be finished 
-				// Need to read the book again on this one.
-
+				
 				// Set this Job as Finished as not to process it again
 				JobsFinished[j] = true;
 
@@ -198,13 +194,10 @@ bool Manager::isSafe(){
 				// End Else (Job found)
 			}
 
-
-			// End Job loop
+		// End Job loop
 		}
-
-		// End while true
+	// End while true
 	}
-
 
 	return false;
 }
@@ -272,17 +265,18 @@ void Manager::Go(){
 
 void Manager::DoWork(int id){
 
-	cout << "Job " << id << " spawned!" << endl;
-	
 	// Function Level variables for this task
 	ResourceType currentType = resA;
 	string resName = "[BLANK]";
 	Job * job = Jobs[id];
-	unique_lock<mutex> ul(mux);
-	cout << "Job " << id << " got past the lock!" << endl;
 
+	// Create our lock object
+	unique_lock<mutex> ul(mux, defer_lock);
+
+	cout << "Job " << id << " stopped waiting!" << endl;
 	int tInc = (int)currentType;
 
+		
 	// Keep acquiring resources until we've 
 	// gotten all 5 (A-E)
 	while (!job->isFinished())
@@ -291,12 +285,13 @@ void Manager::DoWork(int id){
 		// Loop to handle collection of one resource type
 		for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
 
+			ul.lock();
 
 			// Check if we're currently in a safe state for all resources
 			// and job needs
 			if (isSafe()){
 
-				while ( !wouldBeSafe(currentType) ){
+				while (!wouldBeSafe(currentType)){
 					cout << job->name << " can't proceed (Unsafe)!" << endl;
 					cv.wait(ul);
 					cout << job->name << " was woken up!" << endl;
@@ -306,26 +301,22 @@ void Manager::DoWork(int id){
 				Resource res = GetResource(currentType);
 				resName = res.Name;
 				job->resources.push(res);
+				// Inc/Decement associated counters
 				job->resourcesAcquired[currentType]++;
+				ToBeAvail[currentType]--;
+				// Report to cout
 				cout << job->name << " acquired resource " << resName << "!" << endl;
-
-				if (isSafe()){
-					// Let the next process try to get a resource
-					cv.notify_one();
-					cv.wait(ul);
-				}
 				
-			}		
-			
-			// Let the next process try to get a resource
-			cv.notify_one();
-			cv.wait(ul);
+				cv.notify_one();
+				ul.unlock();
+			}
 
 		} // Finished with one resource
 
 		// Move onto the next type.
 		currentType = (ResourceType)tInc++;
-	// End of Type loop
+		
+		// End of Type loop
 	}
 
 	// Notify that a job finished.
