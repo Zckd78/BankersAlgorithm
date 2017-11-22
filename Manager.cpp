@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Manager.h"
 
+
 // Constructor
 Manager::Manager()
 {
@@ -200,8 +201,8 @@ void Manager::Begin(){
 		threads[i].join();
 	}
 
-	cout << "Jobs finished: " << to_string(glob.JobsCompleted) << endl;
-	cout << "Time spent Sleeping: " << to_string(glob.SleepingTime) << "ms" << endl;
+	cout << "Jobs finished: " << to_string(JobsCompleted) << endl;
+	cout << "Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
 }
 
 void Manager::SpinUpJobs(){
@@ -215,7 +216,7 @@ void Manager::SpinUpJobs(){
 void Manager::Go(){
 
 	for (int i = 0; i < MAX_THREADS; i++){
-		threads[i] = thread(&Job::DoWork, Jobs[i]);
+		threads[i] = thread(&Manager::DoWork, this, i);
 	}
 
 	unique_lock<mutex> ul(mux);
@@ -224,7 +225,57 @@ void Manager::Go(){
 	this_thread::sleep_for(chrono::milliseconds(600));
 
 	// Notify Jobs to begin.
-	glob.jobsReady = true;
+	jobsReady = true;
 	cv.notify_one();
 }
 
+void Manager::DoWork(int id){
+
+	ResourceType currentType = resA;
+
+	Job * job = &Jobs[id];
+
+	// Keep acquiring resources until we've 
+	// gotten all 5 (A-E)
+	// while ((int)currentType < 6)
+	// { }
+
+	// Acquire the same lock as Manager
+	unique_lock<mutex> ul(mux);
+
+
+	// Loop to handle collection of one resource type
+	for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
+
+		// Check if we're currently in a safe state for all resources
+		// and job needs
+		if (isSafe()){
+
+			// while (!wouldBeSafe() ){
+			while (!jobsReady){
+				jobsWaiting++;
+				cv.wait(ul);
+				cout << job->name << " just started!" << endl;
+			}
+
+			// Allocate the Resource to this Job
+			job->resources.push(GetResource(currentType));
+
+		}
+
+		cout << job->name << " acquired 1 resource!" << endl;
+	} // Finished with one resource
+
+	// Notify that a job finished.
+	JobsCompleted++;
+
+	// Calculate and update sleep time.
+	int sleepTime = job->resourceInitials[currentType] * 150;
+	SleepingTime += sleepTime;
+	// Sleep for 100 milliseconds for each resource consumed in this job.
+	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+
+	// Notify next job to start.
+	cv.notify_one();
+
+}

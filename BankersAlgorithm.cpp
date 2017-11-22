@@ -2,13 +2,9 @@
 //
 
 #include "stdafx.h"
-#include "Includes.h"
-#include "Utils.h"
 #include "Manager.h"
 
 using namespace std;
-
-
 
 // <=======================================================================>
 //	MAIN FUNCTION 

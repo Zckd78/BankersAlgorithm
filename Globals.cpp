@@ -6,7 +6,3 @@ Globals::Globals()
 {
 }
 
-
-Globals::~Globals()
-{
-}
