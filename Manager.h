@@ -44,7 +44,7 @@ private:
 public:
 
 	// Global Jobs Array
-	Job Jobs[MAX_THREADS];
+	Job * Jobs[MAX_THREADS];
 
 	// Member Functions
 	Manager();
@@ -52,6 +52,7 @@ public:
 	// Resource Related
 	queue<Resource> * GetResourceStack(ResourceType type);
 	Resource GetResource(ResourceType type);
+	void PutResource(ResourceType type, Resource res);
 	void SetupSafety();
 	bool isSafe();
 	bool wouldBeSafe(ResourceType type);

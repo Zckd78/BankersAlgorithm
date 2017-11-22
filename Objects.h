@@ -67,12 +67,10 @@ public:
 	int resourceNeeds[5];
 	// Holds the initial requirements for each
 	int resourceInitials[5];
+	// Holds the initial requirements for each
+	int resourcesAcquired[5];
 	// Stack of resources
 	stack<Resource> resources;
-
-	// Thread sync
-	condition_variable * cv;
-	mutex * mux;
 
 	// Identifiers and Properties. 
 	string name;
@@ -81,23 +79,22 @@ public:
 	Job();
 
 	// Constructor which completely configures a job to run.
-	Job(int i, condition_variable * cv, mutex * mux){
+	Job(int i){
 
 		// Set Required Resources to complete 
 		// for each based on randomness
-		resourceNeeds[resA] = GetRand();
-		resourceNeeds[resB] = GetRand();
-		resourceNeeds[resC] = GetRand();
-		resourceNeeds[resD] = GetRand();
-		resourceNeeds[resE] = GetRand();
+		resourceNeeds[resA] = resourceInitials[resA] = GetRand();
+		resourceNeeds[resB] = resourceInitials[resB] = GetRand();
+		resourceNeeds[resC] = resourceInitials[resC] = GetRand();
+		resourceNeeds[resD] = resourceInitials[resD] = GetRand();
+		resourceNeeds[resE] = resourceInitials[resE] = GetRand();
+
+		// Set our count for resources acquired
+		resourcesAcquired[5] = { 0 };
 
 		// Define this Job
 		name = "Job " + to_string(i);
 		ID = i;
-
-		// Setup local refs to thread sync variables
-		this->cv = cv;
-		this->mux = mux;
 
 	}
 
