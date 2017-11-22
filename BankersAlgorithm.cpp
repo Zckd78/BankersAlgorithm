@@ -2,21 +2,21 @@
 //
 
 #include "stdafx.h"
-#include "JobManager.h"
-#include "Job.h"
+#include "Manager.h"
 
 using namespace std;
 
+// <=======================================================================>
+//	MAIN FUNCTION 
+//		Entry point for the whole program.
+// <=======================================================================>
+
 int _tmain(int argc, _TCHAR* argv[])
 {
-	// Get the single instance
-	ResourceManager resManager = ResourceManager::getInstance();
-	
-	// Create our Job Manager
-	JobManager jobManager;
-	
+	Manager man;
+
 	// Start the Jobs!
-	jobManager.Begin();
+	man.Begin();
 	
 	// Adding this to test the program and actually have a chance to see the output.
 	system("pause");
