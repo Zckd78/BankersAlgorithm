@@ -7,6 +7,8 @@ using namespace std;
 
 static int GetRand(){
 
+	int retVal = 0;
+
 	// ====================================================================================================
 	// The following random integer code is sourced from:
 	// https://stackoverflow.com/questions/5008804/generating-random-integer-from-a-range#19728404
@@ -18,8 +20,14 @@ static int GetRand(){
 	// guaranteed unbiased
 	std::uniform_int_distribution<int> uni(1, MAX_CLAIMS);
 
-	return uni(rng);
+	// Adding this part myself. Sometimes it still returns a 0 (zero)
+	// We can't have a job requiring zero resources.
+	while (retVal == 0)
+		retVal = uni(rng);
+	
 	// ====================================================================================================
+
+	return retVal;
 
 }
 

@@ -19,8 +19,11 @@ private:
 	// Booleans to control execution of Jobs
 	bool jobsReady = false;
 
-	// Count of jobs waiting.
-	int jobsWaiting = 0;
+	// Array of jobs waiting.
+	bool jobsWaiting[MAX_THREADS];
+
+	// Used in isSafe()
+	bool JobsFinished[MAX_THREADS];
 
 	// Tracking variables for jobs to update
 	int JobsCompleted = 0;
@@ -54,8 +57,9 @@ public:
 	Resource GetResource(ResourceType type);
 	void PutResource(ResourceType type, Resource res);
 	void SetupSafety();
+	void SetupWaiting();
 	bool isSafe();
-	bool wouldBeSafe(ResourceType type);
+	bool wouldBeSafe(ResourceType type, int threadID);
 
 	// Job Related
 	void Manager::Begin();

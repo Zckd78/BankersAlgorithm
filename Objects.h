@@ -13,7 +13,6 @@ using namespace std;
 class Resource
 {
 public:
-	Resource * next, *prev;
 	// Give it a name for printing.
 	string Name = "";
 
@@ -61,13 +60,10 @@ enum ResourceType { resA, resB, resC, resD, resE, };
 class Job
 {
 public:
-	// Holds the initial requirements for each
+	// Holds the number of resources acquired
 	int resourcesAcquired[5];
-	// Required resource counts
-	// Decremented as we acquire resources of that type
-	int resourceNeeds[5];
 	// Holds the initial requirements for each
-	int resourceInitials[5];
+	int resourceNeeds[5];
 	
 	// Stack of resources
 	stack<Resource> resources;
@@ -83,14 +79,11 @@ public:
 
 		// Set Required Resources to complete 
 		// for each based on randomness
-		resourceNeeds[resA] = resourceInitials[resA] = GetRand();
-		resourceNeeds[resB] = resourceInitials[resB] = GetRand();
-		resourceNeeds[resC] = resourceInitials[resC] = GetRand();
-		resourceNeeds[resD] = resourceInitials[resD] = GetRand();
-		resourceNeeds[resE] = resourceInitials[resE] = GetRand();
-
-		// Set our count for resources acquired
-		resourcesAcquired[5] = { 0 };
+		resourceNeeds[resA] = GetRand();
+		resourceNeeds[resB] = GetRand();
+		resourceNeeds[resC] = GetRand();
+		resourceNeeds[resD] = GetRand();
+		resourceNeeds[resE] = GetRand();
 
 		// Define this Job
 		name = "Job " + to_string(i);
@@ -102,14 +95,16 @@ public:
 	// Checks if all resource needs have been met.
 	bool isFinished(){
 
-		for (int i = 0; i < 5; i++) {
+		// Single Resource Branch
+		// Removing resource checks other than resA for now.
+		// for (int i = 0; i < 5; i++) {
 
 			// If any resource is not finished acquiring, 
 			// return false.
-			if (resourceNeeds[i] > 0){
+			if (resourcesAcquired[resA] < resourceNeeds[resA]){
 				return false;
 			}
-		}
+		// }
 
 		// Finished looping with all resource needs fulfilled, return true.
 		return true;

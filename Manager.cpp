@@ -140,21 +140,33 @@ bool Manager::isSafe(){
 
 				// Check all Resource Types
 				// t = type
-				for (int t = 0; t < MAX_RESOURCES; t++){
+				// for (int t = 0; t < MAX_RESOURCES; t++){
 
 					// Set current iteration type
-					type = (ResourceType)t;
+					// type = (ResourceType)t;
+					// Single Resource Branch
+					// Removing resource checks other than resA for now.
+
+					type = resA;
 					int need = (currentJob->resourceNeeds[type] - currentJob->resourcesAcquired[type]);
 					if (  need <= ToBeAvail[type] ){
 						JobNeeds[type] = true;
 					}
 
 				// End Type loop
-				}
+				// }
 
 				// Determine if this job fits the criteria
+				/* Single Resource Branch
+				// Removing resource checks other than resA for now.
+
 				if (JobNeeds[resA] && JobNeeds[resB] && JobNeeds[resC]
 					&& JobNeeds[resD] && JobNeeds[resE]){
+					foundJob = currentJob;
+				}
+				*/
+
+				if (JobNeeds[resA]){
 					foundJob = currentJob;
 				}
 
@@ -163,8 +175,6 @@ bool Manager::isSafe(){
 
 			// Didn't find a job
 			if (foundJob == nullptr){
-
-				bool foundFalse = false;
 
 				// Determine if even one job is not finished
 				for (int i = 0; i < MAX_THREADS; i++){
@@ -181,14 +191,15 @@ bool Manager::isSafe(){
 				JobsFinished[j] = true;
 
 				// Return its resources
-				for (int t = 0; t < 5; t++){
+				// for (int t = 0; t < 5; t++){
 
 					// Set current iteration type
-					type = (ResourceType)t;
-
+					// type = (ResourceType)t;
+					type = resA;
+					
 					// Return resources
 					ToBeAvail[type] += currentJob->resourcesAcquired[type];
-				}
+				// }
 
 				foundJob = nullptr;
 				// End Else (Job found)
@@ -203,16 +214,20 @@ bool Manager::isSafe(){
 }
 
 // Acquire a resource, test if safe, and return the result
-bool Manager::wouldBeSafe(ResourceType type){
+bool Manager::wouldBeSafe(ResourceType type, int threadID){
 
 	bool result = false;
+	Job * currentJob = Jobs[threadID];
 
 	ToBeAvail[type]--;
-	Resource test = GetResource(type);
+	currentJob->resources.push( GetResource(type) );
+	currentJob->resourcesAcquired[type]++;
 	if (isSafe()) {
 		result = true;
 	}
-	PutResource(type, test);
+	PutResource(type, currentJob->resources.top());
+	currentJob->resources.pop();
+	currentJob->resourcesAcquired[type]--;
 	ToBeAvail[type]++;
 
 	return result;
@@ -269,14 +284,11 @@ void Manager::DoWork(int id){
 	ResourceType currentType = resA;
 	string resName = "[BLANK]";
 	Job * job = Jobs[id];
+	bool workDone = false;
 
 	// Create our lock object
 	unique_lock<mutex> ul(mux, defer_lock);
 
-	cout << "Job " << id << " stopped waiting!" << endl;
-	int tInc = (int)currentType;
-
-		
 	// Keep acquiring resources until we've 
 	// gotten all 5 (A-E)
 	while (!job->isFinished())
@@ -287,34 +299,47 @@ void Manager::DoWork(int id){
 
 			ul.lock();
 
-			// Check if we're currently in a safe state for all resources
-			// and job needs
-			if (isSafe()){
+			// Check if have finished allocationg resources, and 
+			// we're currently in a safe state for all resources
+			if (!workDone && isSafe()){
 
-				while (!wouldBeSafe(currentType)){
+				while (!wouldBeSafe(currentType, id)){
 					cout << job->name << " can't proceed (Unsafe)!" << endl;
+			
+					// Let another thread try to finish
+					cv.notify_one();
 					cv.wait(ul);
 					cout << job->name << " was woken up!" << endl;
 				}
-
+				
 				// Allocate the Resource to this Job
 				Resource res = GetResource(currentType);
 				resName = res.Name;
 				job->resources.push(res);
 				// Inc/Decement associated counters
 				job->resourcesAcquired[currentType]++;
-				ToBeAvail[currentType]--;
 				// Report to cout
 				cout << job->name << " acquired resource " << resName << "!" << endl;
 				
+				// Check if we've acquired enough resources already.
+				if (job->isFinished()){
+					workDone = true;
+					break;
+				}				
+
+				// Let the next thread go ahead.
 				cv.notify_one();
 				ul.unlock();
+
+			// End isSafe check
 			}
 
 		} // Finished with one resource
-
+		
+		// Single Resource Branch
+		// Removing resource checks other than resA for now.
 		// Move onto the next type.
-		currentType = (ResourceType)tInc++;
+		// currentType = (ResourceType)tInc++;
 		
 		// End of Type loop
 	}
@@ -322,11 +347,28 @@ void Manager::DoWork(int id){
 	// Notify that a job finished.
 	JobsCompleted++;
 
+	// For each type
+	// for (int t = 0; t <= 5; t++) {
+		
+		// currentType = (ResourceType)t;
+				
+		// Return its resources
+		for (int r = job->resourcesAcquired[currentType]; r > 0; r--) {
+			GetResourceStack(currentType)->push(job->resources.top());
+			job->resources.pop();
+			job->resourcesAcquired[currentType]--;
+		}
+
+	// }
+
 	// Calculate and update sleep time.
-	int sleepTime = job->resourceInitials[currentType] * 150;
+	int sleepTime = job->resourcesAcquired[resA] * 150;
 	SleepingTime += sleepTime;
 	// Sleep for 100 milliseconds for each resource consumed in this job.
 	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
 
+	// Let the next thread go ahead.
+	cv.notify_one();
+	ul.unlock();
 	
 }
