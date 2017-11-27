@@ -120,12 +120,11 @@ void Manager::SetupSafety(){
 
 // Determine safety of the current state by observing all current resource allocations,
 // the hypothetical ToBeAvailable if each job that could finish were to finish.
-bool Manager::isSafe(bool setupSafe = true){
+bool Manager::isSafe(){
 
 	// ToBeAvail = copy of all 5 resources
 	// Gets skipped when called from wouldBeSafe()
-	if (setupSafe)
-		SetupSafety();
+	SetupSafety();
 	
 	bool JobFound = false;
 	Job * foundJob = nullptr, * currentJob = nullptr;
@@ -199,7 +198,6 @@ bool Manager::isSafe(bool setupSafe = true){
 				}
 			}
 			// Else return true
-			SetupSafety();
 			return true;
 		}
 		else {
@@ -214,13 +212,9 @@ bool Manager::isSafe(bool setupSafe = true){
 			// type = (ResourceType)t;
 			type = resA;
 
-			// Return resources
-			if (ToBeAvail[type] <= MAX_UNITS){
-				ToBeAvail[type] += currentJob->resourcesAcquired[type];
-			}
-			else {
-				cout << "Cannot place more than MAX Units!";
-			}
+			// Return resources			
+			ToBeAvail[type] += currentJob->resourcesAcquired[type];
+			
 			// }
 
 			foundJob = nullptr;
@@ -238,20 +232,33 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 
 	bool result = false;
 	Job * currentJob = Jobs[threadID];
+	Resource tempRes;
+	// Only test resource acquisition if the resource store can handle it.
+	if (GetResourceStack(type)->size() > 0){
+		tempRes = GetResource(type);
+		currentJob->resources.push(tempRes);
+		currentJob->resourcesAcquired[type]++;
+		if (currentJob->isFinished()){
+			// Would be safe if job finishes with that one resource.
+			PutResource(type, tempRes);
+			currentJob->resources.pop();
+			currentJob->resourcesAcquired[type]--;
+			return true;
+		}
 
-	// No need to actually move resources around.
-	// Added a parameter to isSafe so we can skip the 
-	// Safety setup at the beginning, instead running the 
-	// algorithm with modified ToBeAvail values and Job 
-	// resources acquired.
-	ToBeAvail[type]--;
-	currentJob->resourcesAcquired[type]++;
+		if (isSafe()) {
+			result = true;
+		}
+		PutResource(type, tempRes);
+		currentJob->resources.pop();
+		currentJob->resourcesAcquired[type]--;
 
-	if (isSafe(false)) {
-		result = true;
 	}
-	currentJob->resourcesAcquired[type]--;
-	SetupSafety();
+	else {
+		// Won't be safe if resources are drained to zero.
+		return false;
+	}
+
 
 	return result;
 }
@@ -268,10 +275,7 @@ void Manager::Begin(){
 	Go();
 	
 
-	// Join all threads
-	for (int i = 0; i < MAX_THREADS; i++){
-		threads[i].join();
-	}
+	
 
 	cout << "Jobs finished: " << to_string(JobsCompleted) << endl;
 	cout << "Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
@@ -279,7 +283,7 @@ void Manager::Begin(){
 
 void Manager::SpinUpJobs(){
 
-	for (int i = 0; i < 10; ++i){
+	for (int i = 0; i < MAX_THREADS; ++i){
 		// Pass Job id to the Jobs.
 		Jobs[i] = new Job(i);
 	}
@@ -287,21 +291,30 @@ void Manager::SpinUpJobs(){
 
 void Manager::Go(){
 
+	
+	/* Old way
 	for (int i = 0; i < MAX_THREADS; i++){
 		threads[i] = thread(&Manager::DoWork, this, i);
 	}
+	*/
 
-	unique_lock<mutex> ul(mux);
+	// Run forever..
+	int i = 0;
+	while (true)
+	{
+		for (int i = 0; i < MAX_THREADS; i++){
+			threads[i] = thread(&Manager::Request, this, i);
+		}
 
-	// Give jobs some time to be created.
-	this_thread::sleep_for(chrono::milliseconds(600));
+		// Join all threads
+		for (int i = 0; i < MAX_THREADS; i++){
+			threads[i].join();
+		}
 
-	// Notify Jobs to begin.
-	jobsReady = true;
-	cv.notify_one();
+	}
 }
 
-void Manager::DoWork(int id){
+void Manager::Request(int id){
 
 	// Function Level variables for this task
 	ResourceType currentType = resA;
@@ -311,7 +324,6 @@ void Manager::DoWork(int id){
 
 	// Create our lock object
 	unique_lock<mutex> ul(mux, defer_lock);
-	
 
 	// Keep acquiring resources until we've 
 	// gotten all 5 (A-E)
@@ -320,28 +332,23 @@ void Manager::DoWork(int id){
 
 		// Loop to handle collection of one resource type
 		// for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
-
-		ul.lock();
-
-			// Check if we've acquired enough resources already.
-			if (job->isFinished()){
-				workDone = true;
-				break;
-			}
+			
+			ul.lock();
 
 			// Check if have finished allocationg resources, and 
 			// we're currently in a safe state for all resources
-			if (!workDone && isSafe()){
+			if (isSafe()){
 
-				while (!wouldBeSafe(currentType, id) && !GetResourceStack(currentType)->empty()){
+				while (!wouldBeSafe(currentType, id)){
 					cout << job->name << " can't proceed (Unsafe)!" << endl;
-			
-					// Let another thread try to finish
 					cv.notify_one();
 					cv.wait(ul);					
 				}
 				
 				// Allocate the Resource to this Job
+				if (GetResourceStack(currentType)->empty()){
+
+				}
 				Resource res = GetResource(currentType);
 				resName = res.Name;
 				job->resources.push(res);
@@ -351,10 +358,8 @@ void Manager::DoWork(int id){
 				cout << job->name << " acquired resource " << resName << "!" << endl;
 				
 
-				// Let the next thread take their chance at acquiring one resource.
-				cv.notify_one();
 
-			// End isSafe check
+				// End isSafe check
 			}
 
 		// } // Finished with one resource
@@ -364,8 +369,8 @@ void Manager::DoWork(int id){
 		// Move onto the next type.
 		// currentType = (ResourceType)tInc++;
 		
-
 		ul.unlock();
+
 
 		// End of Type loop
 	}
@@ -385,23 +390,24 @@ void Manager::DoWork(int id){
 
 	// For each type
 	// for (int t = 0; t <= 5; t++) {
-		
-		// currentType = (ResourceType)t;
-				
-		// Return its resources
-		for (int r = job->resourcesAcquired[currentType]; r > 0; r--) {
-			GetResourceStack(currentType)->push(job->resources.top());
-			resName = job->resources.top().Name;
-			job->resources.pop();
-			job->resourcesAcquired[currentType]--;
-			// Report to cout
-			cout << job->name << " released resource " << resName << "!" << endl;
 
-		}
+	// currentType = (ResourceType)t;
+
+	// Return its resources
+	for (int r = job->resourcesAcquired[currentType]; r > 0; r--) {
+		GetResourceStack(currentType)->push(job->resources.top());
+		resName = job->resources.top().Name;
+		job->resources.pop();
+		job->resourcesAcquired[currentType]--;
+		// Report to cout
+		cout << job->name << " released resource " << resName << "!" << endl;
+
+	}
 
 	// }	
 
 	// Let the threads go for it.
 	ul.unlock();
-	cv.notify_one();
+	cv.notify_all();
+		
 }

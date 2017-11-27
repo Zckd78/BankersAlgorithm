@@ -54,14 +54,14 @@ public:
 	Resource GetResource(ResourceType type);
 	void PutResource(ResourceType type, Resource res);
 	void SetupSafety();
-	bool isSafe(bool);
+	bool isSafe();
 	bool wouldBeSafe(ResourceType type, int threadID);
 
 	// Job Related
 	void Manager::Begin();
 	void SpinUpJobs();
 	void Go();
-	void DoWork(int id);
+	void Request(int id);
 
 };
 
