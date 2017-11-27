@@ -266,16 +266,20 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 
 void Manager::Begin(){
 
-	// Create our Job classes
-	// Use a thread to start up the Jobs, which handle their own threads.
-	SpinUpJobs();
+	// Run forever...
+	while (true){
+		// Create our Job classes
+		// Use a thread to start up the Jobs, which handle their own threads.
+		SpinUpJobs();
 
-	// Run all the jobs
-	cout << "Jobs started..." << endl;
-	Go();
-	
+		// Run all the jobs
+		cout << "Jobs started..." << endl;
+		Go();
+		PrintProgress();
+		cout << endl << "Sleeping for 5 seconds before next run...";
+		this_thread::sleep_for(std::chrono::milliseconds(5000));
 
-	
+	}
 
 	cout << "Jobs finished: " << to_string(JobsCompleted) << endl;
 	cout << "Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
@@ -291,27 +295,21 @@ void Manager::SpinUpJobs(){
 
 void Manager::Go(){
 
-	
-	/* Old way
+	// Set clocks
+	endTime = 0;
+	startTime = clock();
+
+	// Setting up a system to stop running jobs.
 	for (int i = 0; i < MAX_THREADS; i++){
-		threads[i] = thread(&Manager::DoWork, this, i);
+		threads[i] = thread(&Manager::Request, this, i);
 	}
-	*/
 
-	// Run forever..
-	int i = 0;
-	while (true)
-	{
-		for (int i = 0; i < MAX_THREADS; i++){
-			threads[i] = thread(&Manager::Request, this, i);
-		}
-
-		// Join all threads
-		for (int i = 0; i < MAX_THREADS; i++){
-			threads[i].join();
-		}
-
-	}
+	// Join all threads
+	for (int i = 0; i < MAX_THREADS; i++){
+		threads[i].join();			
+	}		
+	// Set end time
+	endTime = clock();
 }
 
 void Manager::Request(int id){
@@ -340,23 +338,18 @@ void Manager::Request(int id){
 			if (isSafe()){
 
 				while (!wouldBeSafe(currentType, id)){
-					cout << job->name << " can't proceed (Unsafe)!" << endl;
+					// This one isn't safe to proceed, let the next one waiting go.
 					cv.notify_one();
+					// Then this thread waits.
 					cv.wait(ul);					
 				}
 				
-				// Allocate the Resource to this Job
-				if (GetResourceStack(currentType)->empty()){
-
-				}
+				// Allocate the Resource to this Job				
 				Resource res = GetResource(currentType);
 				resName = res.Name;
 				job->resources.push(res);
 				// Inc/Decement associated counters
 				job->resourcesAcquired[currentType]++;
-				// Report to cout
-				cout << job->name << " acquired resource " << resName << "!" << endl;
-				
 
 
 				// End isSafe check
@@ -375,15 +368,17 @@ void Manager::Request(int id){
 		// End of Type loop
 	}
 	
+	// Lock down so this job can "Run", and then release it's resources.
 	ul.lock();
 
 	// Notify that a job finished.
 	JobsCompleted++;
 	// Report to cout
-	cout << job->name << " has started WORK!" << endl;
+	// cout << job->name << " has started WORK!" << endl;
 
 	// Calculate and update sleep time.
-	int sleepTime = job->resourcesAcquired[resA] * 150;
+	// Avg time = 200ms
+	int sleepTime = GetRand(100,300); 
 	SleepingTime += sleepTime;
 	// Sleep for 100 milliseconds for each resource consumed in this job.
 	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
@@ -399,15 +394,54 @@ void Manager::Request(int id){
 		resName = job->resources.top().Name;
 		job->resources.pop();
 		job->resourcesAcquired[currentType]--;
-		// Report to cout
-		cout << job->name << " released resource " << resName << "!" << endl;
+	}
+	PrintProgress();
+	// }	
+
+	// This job finished, let the threads try to acquire resources.
+	ul.unlock();
+	cv.notify_all();		
+}
+
+// Prints out the current allocations of each Job/Thread, and remaining Resources
+void Manager::PrintProgress(){
+
+	int Acquired[MAX_THREADS];
+
+	// Clear some space
+	system("cls");
+
+	cout << "//====================================================\\\\" << endl;
+	cout << " Job # \t Needs \t Alloc \t Finished?" << endl;
+	cout << "--------------------------------------------------------" << endl;
+
+	for (int i = 0; i < MAX_THREADS; i++){
+
+		Job * currentJob = Jobs[i];
+
+		cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
+		
+		if (currentJob->jobComplete)
+		{
+			cout << "\t " << currentJob->resourceNeeds[resA] << "\t DONE!";
+		}
+		else {
+			cout << "\t " << currentJob->resourcesAcquired[resA];
+		}
+		cout << endl;
 
 	}
 
-	// }	
+	cout << "--------------------------------------------------------" << endl;
+	cout << " Resource A: " << GetResourceStack(resA)->size() << " units";
+	if (endTime != 0)
+		cout << "\t RunTime: " << (double)(endTime - startTime) / CLOCKS_PER_SEC << " seconds";
+	cout << endl;
 
-	// Let the threads go for it.
-	ul.unlock();
-	cv.notify_all();
-		
+	cout << "\\\\====================================================//" << endl;
+
+
+
+
+
 }

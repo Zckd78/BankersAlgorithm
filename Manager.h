@@ -26,6 +26,10 @@ private:
 	int JobsCompleted = 0;
 	int SleepingTime = 0;
 
+	// Tracking execution time
+	clock_t startTime, endTime;
+
+	
 	// ========== ========== ========== 
 	// Resource Related
 	// ========== ========== ==========
@@ -63,5 +67,7 @@ public:
 	void Go();
 	void Request(int id);
 
+	// Output Related
+	void PrintProgress();
 };
 

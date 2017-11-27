@@ -5,7 +5,7 @@
 
 using namespace std;
 
-static int GetRand(){
+static int GetRand(int low, int high){
 
 	int retVal = 0;
 
@@ -18,7 +18,7 @@ static int GetRand(){
 	// random-number engine used (Mersenne-Twister in this case)
 	std::mt19937 rng(rd());
 	// guaranteed unbiased
-	std::uniform_int_distribution<int> uni(1, MAX_CLAIMS);
+	std::uniform_int_distribution<int> uni(low, high);
 
 	// Adding this part myself. Sometimes it still returns a 0 (zero)
 	// We can't have a job requiring zero resources.
@@ -34,7 +34,8 @@ static int GetRand(){
 // Make space for a new messsage
 static void ClearTerminal(){
 	int n;
-	for (n = 0; n < 10; n++){
-		printf("\n\n\n\n\n\n\n\n\n\n");
+	for (n = 0; n < 100; n++){
+		cout << endl;
+		
 	}
 }

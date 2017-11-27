@@ -11,6 +11,7 @@
 #include <random>
 #include <stack>
 #include <queue>
+#include <time.h>
 
 #define MAX_RESOURCES 5
 #define MAX_THREADS 10

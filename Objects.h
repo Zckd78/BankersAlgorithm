@@ -70,8 +70,8 @@ public:
 
 	// Identifiers and Properties. 
 	string name;
+	bool jobComplete;
 	int ID;
-
 	Job();
 
 	// Constructor which completely configures a job to run.
@@ -79,11 +79,11 @@ public:
 
 		// Set Required Resources to complete 
 		// for each based on randomness
-		resourceNeeds[resA] = GetRand();
-		resourceNeeds[resB] = GetRand();
-		resourceNeeds[resC] = GetRand();
-		resourceNeeds[resD] = GetRand();
-		resourceNeeds[resE] = GetRand();
+		resourceNeeds[resA] = GetRand(1, MAX_CLAIMS);
+		resourceNeeds[resB] = GetRand(1, MAX_CLAIMS);
+		resourceNeeds[resC] = GetRand(1, MAX_CLAIMS);
+		resourceNeeds[resD] = GetRand(1, MAX_CLAIMS);
+		resourceNeeds[resE] = GetRand(1, MAX_CLAIMS);
 
 		// Define this Job
 		name = "Job " + to_string(i);
@@ -107,6 +107,7 @@ public:
 		// }
 
 		// Finished looping with all resource needs fulfilled, return true.
+			jobComplete = true;
 		return true;
 	}
 
