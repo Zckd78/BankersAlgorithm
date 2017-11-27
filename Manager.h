@@ -54,8 +54,7 @@ public:
 	Resource GetResource(ResourceType type);
 	void PutResource(ResourceType type, Resource res);
 	void SetupSafety();
-	void SetupWaiting();
-	bool isSafe();
+	bool isSafe(bool);
 	bool wouldBeSafe(ResourceType type, int threadID);
 
 	// Job Related

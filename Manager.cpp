@@ -40,9 +40,15 @@ Resource Manager::GetResource(ResourceType type){
 		Resource curr;
 		// Check the type provided.
 		if (type == resA ){
-			curr = ResQueueA.front();
-			ResQueueA.pop();
-			return curr;
+			if (ResQueueA.empty())
+			{
+				cout << "Resource A has been exhausted!";
+			}
+			else {
+				curr = ResQueueA.front();
+				ResQueueA.pop();
+				return curr;
+			}
 		}
 		if (type == resB){
 			curr = ResQueueB.front();
@@ -75,7 +81,7 @@ void Manager::PutResource(ResourceType type, Resource res){
 	// Check the type provided.
 	if (type == resA){
 		ResQueueA.push(res);
-		return;
+		return;		
 	}
 	if (type == resB){
 		ResQueueB.push(res);
@@ -114,12 +120,13 @@ void Manager::SetupSafety(){
 
 // Determine safety of the current state by observing all current resource allocations,
 // the hypothetical ToBeAvailable if each job that could finish were to finish.
-bool Manager::isSafe(){
+bool Manager::isSafe(bool setupSafe = true){
 
 	// ToBeAvail = copy of all 5 resources
-	// Also sets JobsFinished = {false};
-	SetupSafety();
-
+	// Gets skipped when called from wouldBeSafe()
+	if (setupSafe)
+		SetupSafety();
+	
 	bool JobFound = false;
 	Job * foundJob = nullptr, * currentJob = nullptr;
 
@@ -173,6 +180,7 @@ bool Manager::isSafe(){
 
 				if (JobNeeds[resA]){
 					foundJob = currentJob;
+					break;
 				}
 
 				// End Finished Check
@@ -191,6 +199,7 @@ bool Manager::isSafe(){
 				}
 			}
 			// Else return true
+			SetupSafety();
 			return true;
 		}
 		else {
@@ -206,7 +215,12 @@ bool Manager::isSafe(){
 			type = resA;
 
 			// Return resources
-			ToBeAvail[type] += currentJob->resourcesAcquired[type];
+			if (ToBeAvail[type] <= MAX_UNITS){
+				ToBeAvail[type] += currentJob->resourcesAcquired[type];
+			}
+			else {
+				cout << "Cannot place more than MAX Units!";
+			}
 			// }
 
 			foundJob = nullptr;
@@ -225,16 +239,19 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 	bool result = false;
 	Job * currentJob = Jobs[threadID];
 
+	// No need to actually move resources around.
+	// Added a parameter to isSafe so we can skip the 
+	// Safety setup at the beginning, instead running the 
+	// algorithm with modified ToBeAvail values and Job 
+	// resources acquired.
 	ToBeAvail[type]--;
-	currentJob->resources.push( GetResource(type) );
 	currentJob->resourcesAcquired[type]++;
-	if (isSafe()) {
+
+	if (isSafe(false)) {
 		result = true;
 	}
-	PutResource(type, currentJob->resources.top());
-	currentJob->resources.pop();
 	currentJob->resourcesAcquired[type]--;
-	ToBeAvail[type]++;
+	SetupSafety();
 
 	return result;
 }
@@ -316,11 +333,11 @@ void Manager::DoWork(int id){
 			// we're currently in a safe state for all resources
 			if (!workDone && isSafe()){
 
-				while (!wouldBeSafe(currentType, id)){
+				while (!wouldBeSafe(currentType, id) && !GetResourceStack(currentType)->empty()){
 					cout << job->name << " can't proceed (Unsafe)!" << endl;
 			
 					// Let another thread try to finish
-					// cv.notify_one();
+					cv.notify_one();
 					cv.wait(ul);					
 				}
 				
@@ -353,6 +370,8 @@ void Manager::DoWork(int id){
 		// End of Type loop
 	}
 	
+	ul.lock();
+
 	// Notify that a job finished.
 	JobsCompleted++;
 	// Report to cout
@@ -383,5 +402,6 @@ void Manager::DoWork(int id){
 	// }	
 
 	// Let the threads go for it.
-	cv.notify_all();
+	ul.unlock();
+	cv.notify_one();
 }
