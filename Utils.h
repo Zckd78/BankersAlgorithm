@@ -31,6 +31,7 @@ static int GetRand(){
 
 }
 
+// Make space for a new messsage
 static void ClearTerminal(){
 	int n;
 	for (n = 0; n < 10; n++){

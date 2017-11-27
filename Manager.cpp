@@ -39,7 +39,7 @@ Resource Manager::GetResource(ResourceType type){
 
 		Resource curr;
 		// Check the type provided.
-		if (type == resA){
+		if (type == resA ){
 			curr = ResQueueA.front();
 			ResQueueA.pop();
 			return curr;
@@ -99,27 +99,32 @@ void Manager::PutResource(ResourceType type, Resource res){
 
 
 // Update our ToBeAvail values to match current 
-// available resources
+// available resources.
 void Manager::SetupSafety(){
 
+	// Set ToBeAvail equal to the current 
+	// size of each Resource Queue.
 	ToBeAvail[resA] = ResQueueA.size();
 	ToBeAvail[resB] = ResQueueB.size();
 	ToBeAvail[resC] = ResQueueC.size();
 	ToBeAvail[resD] = ResQueueD.size();
-	ToBeAvail[resE] = ResQueueE.size();
+	ToBeAvail[resE] = ResQueueE.size();	
 
 }
 
-// Find any thread that isn't finished, and 
+// Determine safety of the current state by observing all current resource allocations,
+// the hypothetical ToBeAvailable if each job that could finish were to finish.
 bool Manager::isSafe(){
 
 	// ToBeAvail = copy of all 5 resources
+	// Also sets JobsFinished = {false};
 	SetupSafety();
 
 	bool JobFound = false;
-	bool JobsFinished[MAX_THREADS] = { false, false, false, false, false, false, false, false, false, false };
-
 	Job * foundJob = nullptr, * currentJob = nullptr;
+
+	// Tracks 
+	bool JobsFinished[MAX_THREADS] = { false, false, false, false, false, false, false, false, false, false };
 
 	// Set the current type
 	ResourceType type;
@@ -131,7 +136,7 @@ bool Manager::isSafe(){
 		for (int j = 0; j < MAX_THREADS; j++){
 
 			currentJob = Jobs[j];
-
+			
 			// Tracks which resource needs fit checks below
 			bool JobNeeds[MAX_RESOURCES] = { false, false, false, false, false };
 
@@ -171,42 +176,43 @@ bool Manager::isSafe(){
 				}
 
 				// End Finished Check
-			}
-
-			// Didn't find a job
-			if (foundJob == nullptr){
-
-				// Determine if even one job is not finished
-				for (int i = 0; i < MAX_THREADS; i++){
-					if (!JobsFinished[i]){
-						return false;
-					}
-				}
-				// Else return true
-				return true;
-			}
-			else {
-				
-				// Set this Job as Finished as not to process it again
-				JobsFinished[j] = true;
-
-				// Return its resources
-				// for (int t = 0; t < 5; t++){
-
-					// Set current iteration type
-					// type = (ResourceType)t;
-					type = resA;
-					
-					// Return resources
-					ToBeAvail[type] += currentJob->resourcesAcquired[type];
-				// }
-
-				foundJob = nullptr;
-				// End Else (Job found)
-			}
+			}		
 
 		// End Job loop
 		}
+
+		// Didn't find a job
+		if (foundJob == nullptr){
+
+			// Determine if even one job is not finished
+			for (int i = 0; i < MAX_THREADS; i++){
+				if (!JobsFinished[i]){
+					return false;
+				}
+			}
+			// Else return true
+			return true;
+		}
+		else {
+
+			// Set this Job as Finished as not to process it again
+			JobsFinished[foundJob->ID] = true;
+
+			// Return its resources
+			// for (int t = 0; t < 5; t++){
+
+			// Set current iteration type
+			// type = (ResourceType)t;
+			type = resA;
+
+			// Return resources
+			ToBeAvail[type] += currentJob->resourcesAcquired[type];
+			// }
+
+			foundJob = nullptr;
+			// End Else (Job found)
+		}
+
 	// End while true
 	}
 
@@ -288,6 +294,7 @@ void Manager::DoWork(int id){
 
 	// Create our lock object
 	unique_lock<mutex> ul(mux, defer_lock);
+	
 
 	// Keep acquiring resources until we've 
 	// gotten all 5 (A-E)
@@ -295,9 +302,15 @@ void Manager::DoWork(int id){
 	{
 
 		// Loop to handle collection of one resource type
-		for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
+		// for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
 
-			ul.lock();
+		ul.lock();
+
+			// Check if we've acquired enough resources already.
+			if (job->isFinished()){
+				workDone = true;
+				break;
+			}
 
 			// Check if have finished allocationg resources, and 
 			// we're currently in a safe state for all resources
@@ -307,9 +320,8 @@ void Manager::DoWork(int id){
 					cout << job->name << " can't proceed (Unsafe)!" << endl;
 			
 					// Let another thread try to finish
-					cv.notify_one();
-					cv.wait(ul);
-					cout << job->name << " was woken up!" << endl;
+					// cv.notify_one();
+					cv.wait(ul);					
 				}
 				
 				// Allocate the Resource to this Job
@@ -321,31 +333,36 @@ void Manager::DoWork(int id){
 				// Report to cout
 				cout << job->name << " acquired resource " << resName << "!" << endl;
 				
-				// Check if we've acquired enough resources already.
-				if (job->isFinished()){
-					workDone = true;
-					break;
-				}				
 
-				// Let the next thread go ahead.
+				// Let the next thread take their chance at acquiring one resource.
 				cv.notify_one();
-				ul.unlock();
 
 			// End isSafe check
 			}
 
-		} // Finished with one resource
+		// } // Finished with one resource
 		
 		// Single Resource Branch
 		// Removing resource checks other than resA for now.
 		// Move onto the next type.
 		// currentType = (ResourceType)tInc++;
 		
+
+		ul.unlock();
+
 		// End of Type loop
 	}
-
+	
 	// Notify that a job finished.
 	JobsCompleted++;
+	// Report to cout
+	cout << job->name << " has started WORK!" << endl;
+
+	// Calculate and update sleep time.
+	int sleepTime = job->resourcesAcquired[resA] * 150;
+	SleepingTime += sleepTime;
+	// Sleep for 100 milliseconds for each resource consumed in this job.
+	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
 
 	// For each type
 	// for (int t = 0; t <= 5; t++) {
@@ -355,20 +372,16 @@ void Manager::DoWork(int id){
 		// Return its resources
 		for (int r = job->resourcesAcquired[currentType]; r > 0; r--) {
 			GetResourceStack(currentType)->push(job->resources.top());
+			resName = job->resources.top().Name;
 			job->resources.pop();
 			job->resourcesAcquired[currentType]--;
+			// Report to cout
+			cout << job->name << " released resource " << resName << "!" << endl;
+
 		}
 
-	// }
+	// }	
 
-	// Calculate and update sleep time.
-	int sleepTime = job->resourcesAcquired[resA] * 150;
-	SleepingTime += sleepTime;
-	// Sleep for 100 milliseconds for each resource consumed in this job.
-	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-
-	// Let the next thread go ahead.
-	cv.notify_one();
-	ul.unlock();
-	
+	// Let the threads go for it.
+	cv.notify_all();
 }

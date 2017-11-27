@@ -22,16 +22,9 @@ private:
 	// Array of jobs waiting.
 	bool jobsWaiting[MAX_THREADS];
 
-	// Used in isSafe()
-	bool JobsFinished[MAX_THREADS];
-
 	// Tracking variables for jobs to update
 	int JobsCompleted = 0;
 	int SleepingTime = 0;
-
-	// Needed for thread synchronization 
-	condition_variable cv;
-	mutex mux;
 
 	// ========== ========== ========== 
 	// Resource Related
@@ -45,6 +38,10 @@ private:
 
 
 public:
+
+	// Needed for thread synchronization 
+	condition_variable cv;
+	mutex mux;
 
 	// Global Jobs Array
 	Job * Jobs[MAX_THREADS];
