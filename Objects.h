@@ -4,7 +4,6 @@
 
 using namespace std;
 
-
 // <=======================================================================>
 //	Base resource class 
 //		Used to fill arrays of consumed resourced by 
@@ -18,17 +17,16 @@ public:
 
 	Resource(){}
 	// Constructor to set the name upon creation.
-	Resource(string pName){
-		Name = pName;
-	}
+	Resource(string);
 
 };
 
 
-
-// Inherited Resource types
-// These represent the 5 Resource types 
-// in our virtual system
+// <=======================================================================>
+//	Inherited Resource types
+//		These represent the 5 Resource types 
+//		in our virtual system
+// <=======================================================================>
 class ResourceA : public Resource {
 	ResourceA() { }
 };
@@ -50,13 +48,15 @@ class ResourceE : public Resource {
 };
 
 
-// Static Type enum for later use.
+// Type enum for later use.
 enum ResourceType { resA, resB, resC, resD, resE, };
 
 
-
-// Job object.
-// Handles making requests.
+// <=======================================================================>
+//	 Job object
+//		Holds the Resources needed, acquired so far, and object identifiers.
+//		in our virtual system
+// <=======================================================================>
 class Job
 {
 public:
@@ -71,45 +71,11 @@ public:
 	// Identifiers and Properties. 
 	string name;
 	bool jobComplete;
+	bool jobWaiting;
 	int ID;
 	Job();
-
 	// Constructor which completely configures a job to run.
-	Job(int i){
-
-		// Set Required Resources to complete 
-		// for each based on randomness
-		resourceNeeds[resA] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resB] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resC] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resD] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resE] = GetRand(1, MAX_CLAIMS);
-
-		// Define this Job
-		name = "Job " + to_string(i);
-		ID = i;
-
-	}
-
-
-	// Checks if all resource needs have been met.
-	bool isFinished(){
-
-		// Single Resource Branch
-		// Removing resource checks other than resA for now.
-		// for (int i = 0; i < 5; i++) {
-
-			// If any resource is not finished acquiring, 
-			// return false.
-			if (resourcesAcquired[resA] < resourceNeeds[resA]){
-				return false;
-			}
-		// }
-
-		// Finished looping with all resource needs fulfilled, return true.
-			jobComplete = true;
-		return true;
-	}
-
+	Job(int);
+	bool isFinished();
 
 };

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Manager.h"
+#include "Includes.h"
 
 
 // Constructor
@@ -238,17 +239,18 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 		tempRes = GetResource(type);
 		currentJob->resources.push(tempRes);
 		currentJob->resourcesAcquired[type]++;
-		if (currentJob->isFinished()){
-			// Would be safe if job finishes with that one resource.
+		// Would be safe if job finishes with that one resource.
+		if (currentJob->isFinished()){			
 			PutResource(type, tempRes);
 			currentJob->resources.pop();
 			currentJob->resourcesAcquired[type]--;
 			return true;
 		}
-
+		// Test Safety of this scenario
 		if (isSafe()) {
 			result = true;
 		}
+		// Put resources back
 		PutResource(type, tempRes);
 		currentJob->resources.pop();
 		currentJob->resourcesAcquired[type]--;
@@ -259,7 +261,6 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 		return false;
 	}
 
-
 	return result;
 }
 
@@ -267,22 +268,48 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 void Manager::Begin(){
 
 	// Run forever...
-	while (true){
+	int r = 0;
+	while (r < 5){
 		// Create our Job classes
 		// Use a thread to start up the Jobs, which handle their own threads.
 		SpinUpJobs();
+
+		// Set internal ExecCount
+		ExecCount = r;
 
 		// Run all the jobs
 		cout << "Jobs started..." << endl;
 		Go();
 		PrintProgress();
-		cout << endl << "Sleeping for 5 seconds before next run...";
-		this_thread::sleep_for(std::chrono::milliseconds(5000));
-
+		cout << endl << "Sleeping for 3 seconds before next run...";
+		this_thread::sleep_for(std::chrono::milliseconds(3000));
+		// Increment r
+		r++;
 	}
+
+	// Clear the screen
+	system("cls");
+
+	DrawBar(BarHeader);
+	cout << "  Statistics " << endl;
+	DrawBar(BarLine);
 
 	cout << "Jobs finished: " << to_string(JobsCompleted) << endl;
 	cout << "Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
+
+	// Calculate Average run time
+	int a = (ExecTimes.size() -1 );
+	double avg = 0.0;
+	while (a >= 0){
+		avg += ExecTimes.at(a);
+		a--;
+	}
+	avg = avg / ExecTimes.size();
+
+	cout << "Average Run time: " << avg << endl;
+	DrawBar(BarLine);
+	DrawBar(BarFooter);
+
 }
 
 void Manager::SpinUpJobs(){
@@ -341,9 +368,12 @@ void Manager::Request(int id){
 					// This one isn't safe to proceed, let the next one waiting go.
 					cv.notify_one();
 					// Then this thread waits.
+					job->jobWaiting = true;
 					cv.wait(ul);					
 				}
 				
+				// No longer waiting
+				job->jobWaiting = false;
 				// Allocate the Resource to this Job				
 				Resource res = GetResource(currentType);
 				resName = res.Name;
@@ -403,44 +433,82 @@ void Manager::Request(int id){
 	cv.notify_all();		
 }
 
+void Manager::DrawBar(BarType type){
+
+
+	switch (type)
+	{
+	case Manager::BarHeader:
+		cout << "/";
+		for (int i = 0; i < 50; i++){ cout << "="; }
+		cout << "\\" << endl;
+		break;
+	case Manager::BarFooter:
+		cout << "\\";
+		for (int i = 0; i < 50; i++){ cout << "="; }
+		cout << "/" << endl;
+		break;
+	case Manager::BarLine:	
+		for (int i = 0; i < 52; i++){ cout << "-"; }
+		cout << endl;
+		break;
+	default:
+		break;		
+	}
+
+
+
+}
+
 // Prints out the current allocations of each Job/Thread, and remaining Resources
 void Manager::PrintProgress(){
 
 	int Acquired[MAX_THREADS];
+	double runTime;
 
 	// Clear some space
 	system("cls");
 
-	cout << "//====================================================\\\\" << endl;
-	cout << " Job # \t Needs \t Alloc \t Finished?" << endl;
-	cout << "--------------------------------------------------------" << endl;
+	// Print the number of times run so far.
+	cout << endl << endl << "\t     <======[Run # " << ExecCount << "]======>"  << endl << endl;
+
+	DrawBar(BarHeader);
+	cout << " Job # \t Needs \t Alloc \t Waiting? \t Finished?" << endl;
+	DrawBar(BarLine);
 
 	for (int i = 0; i < MAX_THREADS; i++){
-
+		// Set current job
 		Job * currentJob = Jobs[i];
-
-		cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
 		
 		if (currentJob->jobComplete)
 		{
-			cout << "\t " << currentJob->resourceNeeds[resA] << "\t DONE!";
+			// Display Job ID, and needs.
+			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
+			cout << "\t " << currentJob->resourceNeeds[resA];
+			cout << "\t" << (currentJob->jobWaiting ? "Waiting.." : "") << "\t\t DONE!";			
 		}
 		else {
+
+			// Display Job ID, and needs.
+			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
 			cout << "\t " << currentJob->resourcesAcquired[resA];
+			cout << "\t " << (currentJob->jobWaiting ? "Waiting.." : "");
+			
 		}
 		cout << endl;
 
 	}
 
-	cout << "--------------------------------------------------------" << endl;
+	DrawBar(BarLine); 
 	cout << " Resource A: " << GetResourceStack(resA)->size() << " units";
-	if (endTime != 0)
-		cout << "\t RunTime: " << (double)(endTime - startTime) / CLOCKS_PER_SEC << " seconds";
+	if (endTime != 0) {
+		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
+		cout << "\t RunTime: " << runTime << " seconds";
+		ExecTimes.push_back(runTime);
+	}
 	cout << endl;
 
-	cout << "\\\\====================================================//" << endl;
-
-
+	DrawBar(BarFooter);
 
 
 

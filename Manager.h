@@ -16,19 +16,6 @@ private:
 	// Thread for starting the jobs
 	thread threads[MAX_THREADS];
 
-	// Booleans to control execution of Jobs
-	bool jobsReady = false;
-
-	// Array of jobs waiting.
-	bool jobsWaiting[MAX_THREADS];
-
-	// Tracking variables for jobs to update
-	int JobsCompleted = 0;
-	int SleepingTime = 0;
-
-	// Tracking execution time
-	clock_t startTime, endTime;
-
 	
 	// ========== ========== ========== 
 	// Resource Related
@@ -40,6 +27,24 @@ private:
 	// To Be Available counts for all 5 resources
 	int ToBeAvail[MAX_RESOURCES];
 
+
+
+	// ========== ========== ========== 
+	// Output / Tracking Related
+	// ========== ========== ==========
+	
+	// # times run
+	int ExecCount = 0;
+
+	// Tracking variables for jobs to update
+	int JobsCompleted = 0;
+	int SleepingTime = 0;
+
+	// Tracking execution time
+	clock_t startTime, endTime;
+	vector<double> ExecTimes;
+
+	enum BarType { BarHeader, BarFooter, BarLine};
 
 public:
 
@@ -69,5 +74,6 @@ public:
 
 	// Output Related
 	void PrintProgress();
+	void DrawBar(BarType);
 };
 

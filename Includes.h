@@ -12,6 +12,7 @@
 #include <stack>
 #include <queue>
 #include <time.h>
+#include <stdio.h>
 
 #define MAX_RESOURCES 5
 #define MAX_THREADS 10
