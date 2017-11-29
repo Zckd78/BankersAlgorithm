@@ -16,20 +16,7 @@ private:
 	// Thread for starting the jobs
 	thread threads[MAX_THREADS];
 
-	// Booleans to control execution of Jobs
-	bool jobsReady = false;
-
-	// Count of jobs waiting.
-	int jobsWaiting = 0;
-
-	// Tracking variables for jobs to update
-	int JobsCompleted = 0;
-	int SleepingTime = 0;
-
-	// Needed for thread synchronization 
-	condition_variable cv;
-	mutex mux;
-
+	
 	// ========== ========== ========== 
 	// Resource Related
 	// ========== ========== ==========
@@ -41,7 +28,29 @@ private:
 	int ToBeAvail[MAX_RESOURCES];
 
 
+
+	// ========== ========== ========== 
+	// Output / Tracking Related
+	// ========== ========== ==========
+	
+	// # times run
+	int ExecCount = 0;
+
+	// Tracking variables for jobs to update
+	int JobsCompleted = 0;
+	int SleepingTime = 0;
+
+	// Tracking execution time
+	clock_t startTime, endTime;
+	vector<double> ExecTimes;
+
+	enum BarType { BarHeader, BarFooter, BarLine};
+
 public:
+
+	// Needed for thread synchronization 
+	condition_variable cv;
+	mutex mux;
 
 	// Global Jobs Array
 	Job * Jobs[MAX_THREADS];
@@ -55,13 +64,16 @@ public:
 	void PutResource(ResourceType type, Resource res);
 	void SetupSafety();
 	bool isSafe();
-	bool wouldBeSafe(ResourceType type);
+	bool wouldBeSafe(ResourceType type, int threadID);
 
 	// Job Related
 	void Manager::Begin();
 	void SpinUpJobs();
 	void Go();
-	void DoWork(int id);
+	void Request(int id);
 
+	// Output Related
+	void PrintProgress();
+	void DrawBar(BarType);
 };
 
