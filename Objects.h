@@ -5,7 +5,7 @@
 using namespace std;
 
 // <=======================================================================>
-//	Base resource class 
+//	Rresource class 
 //		Used to fill arrays of consumed resourced by 
 //		instances of the Job class.
 // <=======================================================================>
@@ -20,17 +20,6 @@ public:
 	Resource(string);
 
 };
-
-
-// <=======================================================================>
-//	Inherited Resource types
-//		These represent the 5 Resource types 
-//		in our virtual system
-// <=======================================================================>
-class ResourceA : public Resource {
-	ResourceA() { }
-};
-
 
 // <=======================================================================>
 //	 Job object

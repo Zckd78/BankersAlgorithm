@@ -12,35 +12,11 @@ Manager::Manager()
 	}
 }
 
-queue<Resource> * Manager::GetResourceStack(){
-
-	return &ResQueue;	
-
-}
-
 Resource Manager::GetResource(){
 
-		Resource curr;
-		if (ResQueue.empty())
-		{
-			cout << "Resource A has been exhausted!";
-		}
-		else {
-			curr = ResQueue.front();
-			ResQueue.pop();
-			return curr;
-		}
-
-		// Didnt match any, return a blank one.
-		return curr;
-	}
-
-
-void Manager::PutResource(Resource res){
-
-	ResQueue.push(res);
-	return;		
-	
+	Resource curr = ResQueue.front();
+	ResQueue.pop();
+	return curr;
 }
 
 
@@ -135,13 +111,13 @@ bool Manager::wouldBeSafe(int threadID){
 	Job * currentJob = Jobs[threadID];
 	Resource tempRes;
 	// Only test resource acquisition if the resource store can handle it.
-	if (GetResourceStack()->size() > 0){
+	if (ResQueue.size() > 0){
 		tempRes = GetResource();
 		currentJob->resources.push(tempRes);
 		currentJob->resourcesAcquired++;
 		// Would be safe if job finishes with that one resource.
 		if (currentJob->isFinished()){			
-			PutResource(tempRes);
+			ResQueue.push(tempRes);
 			currentJob->resources.pop();
 			currentJob->resourcesAcquired--;
 			return true;
@@ -151,7 +127,7 @@ bool Manager::wouldBeSafe(int threadID){
 			result = true;
 		}
 		// Put resources back
-		PutResource(tempRes);
+		ResQueue.push(tempRes);
 		currentJob->resources.pop();
 		currentJob->resourcesAcquired--;
 
@@ -227,7 +203,6 @@ void Manager::Go(){
 void Manager::Request(int id){
 
 	// Function Level variables for this task
-	string resName = "[BLANK]";
 	Job * job = Jobs[id];
 	bool workDone = false;
 
@@ -239,45 +214,33 @@ void Manager::Request(int id){
 	while (!job->isFinished())
 	{
 
-		// Loop to handle collection of one resource type
-		// for (int j = job->resourceNeeds[currentType]; j >= 0; j--) {
-			
-			ul.lock();
+		ul.lock();
 
-			// Check if have finished allocationg resources, and 
-			// we're currently in a safe state for all resources
-			if (isSafe()){
+		// Check if have finished allocationg resources, and 
+		// we're currently in a safe state for all resources
+		if (isSafe()){
 
-				while (!wouldBeSafe(id)){
-					// This one isn't safe to proceed, let the next one waiting go.
-					cv.notify_one();
-					// Then this thread waits.
-					job->jobWaiting = true;
-					cv.wait(ul);					
-				}
-				
-				// No longer waiting
-				job->jobWaiting = false;
-				// Allocate the Resource to this Job				
-				Resource res = GetResource();
-				resName = res.Name;
-				job->resources.push(res);
-				// Inc/Decement associated counters
-				job->resourcesAcquired++;
-
-
-				// End isSafe check
+			while (!wouldBeSafe(id)){
+				// This one isn't safe to proceed, let the next one waiting go.
+				cv.notify_one();
+				// Then this thread waits.
+				job->jobWaiting = true;
+				cv.wait(ul);					
 			}
+				
+			// No longer waiting
+			job->jobWaiting = false;
+			// Allocate the Resource to this Job				
+			Resource res = GetResource();
+			job->resources.push(res);
+			// Inc/Decement associated counters
+			job->resourcesAcquired++;
 
-		// } // Finished with one resource
-		
-		// Single Resource Branch
-		// Removing resource checks other than resA for now.
-		// Move onto the next type.
-		// currentType = (ResourceType)tInc++;
+
+			// End isSafe check
+		}
 		
 		ul.unlock();
-
 
 		// End of Type loop
 	}
@@ -287,9 +250,7 @@ void Manager::Request(int id){
 
 	// Notify that a job finished.
 	JobsCompleted++;
-	// Report to cout
-	// cout << job->name << " has started WORK!" << endl;
-
+	
 	// Calculate and update sleep time.
 	// Avg time = 200ms
 	int sleepTime = GetRand(100,300); 
@@ -297,20 +258,13 @@ void Manager::Request(int id){
 	// Sleep for 100 milliseconds for each resource consumed in this job.
 	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
 
-	// For each type
-	// for (int t = 0; t <= 5; t++) {
-
-	// currentType = (ResourceType)t;
-
 	// Return its resources
 	for (int r = job->resourcesAcquired; r > 0; r--) {
-		GetResourceStack()->push(job->resources.top());
-		resName = job->resources.top().Name;
+		ResQueue.push(job->resources.top());
 		job->resources.pop();
 		job->resourcesAcquired--;
 	}
 	PrintProgress();
-	// }	
 
 	// This job finished, let the threads try to acquire resources.
 	ul.unlock();
@@ -383,7 +337,7 @@ void Manager::PrintProgress(){
 	}
 
 	DrawBar(BarLine); 
-	cout << " Resource: " << GetResourceStack()->size() << " units";
+	cout << " Resource: " << ResQueue.size() << " units";
 	if (endTime != 0) {
 		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 		cout << "\t RunTime: " << runTime << " seconds";
@@ -443,6 +397,6 @@ void Manager::PrintTitle(){
 	cout << " Bankers Algorithm" << endl;
 	cout << " Final project for CSCI 144 - Fall 2017" << endl;
 	cout << " Written by Zachary Scott" << endl;
-	DrawBar(Manager::BarLine);
+	DrawBar(BarFooter);
 
 }

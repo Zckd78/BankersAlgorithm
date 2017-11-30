@@ -58,9 +58,7 @@ public:
 	Manager();
 	
 	// Resource Related
-	queue<Resource> * GetResourceStack();
 	Resource GetResource();
-	void PutResource(Resource res);
 	void SetupSafety();
 	bool isSafe();
 	bool wouldBeSafe(int threadID);

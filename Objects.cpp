@@ -17,7 +17,7 @@ Job::Job(){
 Job::Job(int i) {
 
 		// Set Required Resources to complete 
-		// for each based on randomness
+		// based on randomness
 		resourceNeeds = GetRand(1, MAX_CLAIMS);
 
 		// Define this Job
@@ -29,16 +29,11 @@ Job::Job(int i) {
 // Checks if all resource needs have been met.
 bool Job::isFinished(){
 
-	// Single Resource Branch
-	// Removing resource checks other than resA for now.
-	// for (int i = 0; i < 5; i++) {
-
-	// If any resource is not finished acquiring, 
+	// If resource is not finished acquiring, 
 	// return false.
 	if (resourcesAcquired < resourceNeeds){
 		return false;
 	}
-	// }
 
 	// Finished looping with all resource needs fulfilled, return true.
 	jobComplete = true;
