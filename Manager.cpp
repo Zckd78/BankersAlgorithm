@@ -25,7 +25,7 @@ Resource Manager::GetResource(){
 void Manager::SetupSafety(){
 
 	// Set ToBeAvail equal to the current 
-	// size of each Resource Queue.
+	// size of the Resource Queue.
 	ToBeAvail = ResQueue.size();
 
 }
@@ -34,8 +34,7 @@ void Manager::SetupSafety(){
 // the hypothetical ToBeAvailable if each job that could finish were to finish.
 bool Manager::isSafe(){
 
-	// ToBeAvail = copy of all 5 resources
-	// Gets skipped when called from wouldBeSafe()
+	// ToBeAvail = copy of Avail
 	SetupSafety();
 	
 	bool JobFound = false;
@@ -159,9 +158,7 @@ void Manager::Begin(){
 		PrintStats();
 		cout << endl << "Sleeping for 3 seconds before next run...";
 		this_thread::sleep_for(std::chrono::milliseconds(3000));
-	}
-
-	
+	}	
 
 }
 

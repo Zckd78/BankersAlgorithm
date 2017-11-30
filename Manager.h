@@ -27,7 +27,6 @@ private:
 	// To Be Available counts for all 5 resources
 	int ToBeAvail;
 
-
 	// ========== ========== ========== 
 	// Output / Tracking Related
 	// ========== ========== ==========
