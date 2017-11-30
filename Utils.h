@@ -31,11 +31,3 @@ static int GetRand(int low, int high){
 
 }
 
-// Make space for a new messsage
-static void ClearTerminal(){
-	int n;
-	for (n = 0; n < 100; n++){
-		cout << endl;
-		
-	}
-}

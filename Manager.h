@@ -21,12 +21,11 @@ private:
 	// Resource Related
 	// ========== ========== ==========
 	
-	// New Stack based resources
-	queue<Resource> ResQueueA, ResQueueB, ResQueueC, ResQueueD, ResQueueE;
+	// Queue for resources
+	queue<Resource> ResQueue;
 
 	// To Be Available counts for all 5 resources
-	int ToBeAvail[MAX_RESOURCES];
-
+	int ToBeAvail;
 
 
 	// ========== ========== ========== 
@@ -44,9 +43,9 @@ private:
 	clock_t startTime, endTime;
 	vector<double> ExecTimes;
 
-	enum BarType { BarHeader, BarFooter, BarLine};
-
 public:
+
+	enum BarType { BarHeader, BarFooter, BarLine };
 
 	// Needed for thread synchronization 
 	condition_variable cv;
@@ -59,15 +58,15 @@ public:
 	Manager();
 	
 	// Resource Related
-	queue<Resource> * GetResourceStack(ResourceType type);
-	Resource GetResource(ResourceType type);
-	void PutResource(ResourceType type, Resource res);
+	queue<Resource> * GetResourceStack();
+	Resource GetResource();
+	void PutResource(Resource res);
 	void SetupSafety();
 	bool isSafe();
-	bool wouldBeSafe(ResourceType type, int threadID);
+	bool wouldBeSafe(int threadID);
 
 	// Job Related
-	void Manager::Begin();
+	void Begin(int);
 	void SpinUpJobs();
 	void Go();
 	void Request(int id);

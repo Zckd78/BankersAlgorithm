@@ -31,26 +31,6 @@ class ResourceA : public Resource {
 	ResourceA() { }
 };
 
-class ResourceB : public Resource {
-	ResourceB() { }
-};
-
-class ResourceC : public Resource {
-	ResourceC() { }
-};
-
-class ResourceD : public Resource {
-	ResourceD() { }
-};
-
-class ResourceE : public Resource {
-	ResourceE() { }
-};
-
-
-// Type enum for later use.
-enum ResourceType { resA, resB, resC, resD, resE, };
-
 
 // <=======================================================================>
 //	 Job object
@@ -61,9 +41,9 @@ class Job
 {
 public:
 	// Holds the number of resources acquired
-	int resourcesAcquired[5];
+	int resourcesAcquired;
 	// Holds the initial requirements for each
-	int resourceNeeds[5];
+	int resourceNeeds;
 	
 	// Stack of resources
 	stack<Resource> resources;

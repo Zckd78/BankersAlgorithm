@@ -8,67 +8,26 @@ Manager::Manager()
 {
 	// Create our storage nodes.
 	for (int i = MAX_UNITS; i > 0; i--){
-		ResQueueA.push(Resource("A" + to_string(i)));
-		ResQueueB.push(Resource("B" + to_string(i)));
-		ResQueueC.push(Resource("C" + to_string(i)));
-		ResQueueD.push(Resource("D" + to_string(i)));
-		ResQueueE.push(Resource("E" + to_string(i)));
+		ResQueue.push(Resource("A" + to_string(i)));
 	}
 }
 
-queue<Resource> * Manager::GetResourceStack(ResourceType type){
+queue<Resource> * Manager::GetResourceStack(){
 
-	if (type == resA){
-		return &ResQueueA;
-	}
-	if (type == resB){
-		return &ResQueueB;
-	}
-	if (type == resC){
-		return &ResQueueC;
-	}
-	if (type == resD){
-		return &ResQueueD;
-	}
-	if (type == resE){
-		return &ResQueueE;
-	}
+	return &ResQueue;	
 
 }
 
-Resource Manager::GetResource(ResourceType type){
+Resource Manager::GetResource(){
 
 		Resource curr;
-		// Check the type provided.
-		if (type == resA ){
-			if (ResQueueA.empty())
-			{
-				cout << "Resource A has been exhausted!";
-			}
-			else {
-				curr = ResQueueA.front();
-				ResQueueA.pop();
-				return curr;
-			}
+		if (ResQueue.empty())
+		{
+			cout << "Resource A has been exhausted!";
 		}
-		if (type == resB){
-			curr = ResQueueB.front();
-			ResQueueB.pop();
-			return curr;
-		}
-		if (type == resC){
-			curr = ResQueueC.front();
-			ResQueueC.pop();
-			return curr;
-		}
-		if (type == resD){
-			curr = ResQueueD.front();
-			ResQueueD.pop();
-			return curr;
-		}
-		if (type == resE){
-			curr = ResQueueE.front();
-			ResQueueE.pop();
+		else {
+			curr = ResQueue.front();
+			ResQueue.pop();
 			return curr;
 		}
 
@@ -77,31 +36,11 @@ Resource Manager::GetResource(ResourceType type){
 	}
 
 
-void Manager::PutResource(ResourceType type, Resource res){
+void Manager::PutResource(Resource res){
 
-	// Check the type provided.
-	if (type == resA){
-		ResQueueA.push(res);
-		return;		
-	}
-	if (type == resB){
-		ResQueueB.push(res);
-		return;
-	}
-	if (type == resC){
-		ResQueueC.push(res);
-		return;
-	}
-	if (type == resD){
-		ResQueueD.push(res);
-		return;
-	}
-	if (type == resE){
-		ResQueueE.push(res);
-		return;
-	}
-
-	return;
+	ResQueue.push(res);
+	return;		
+	
 }
 
 
@@ -111,11 +50,7 @@ void Manager::SetupSafety(){
 
 	// Set ToBeAvail equal to the current 
 	// size of each Resource Queue.
-	ToBeAvail[resA] = ResQueueA.size();
-	ToBeAvail[resB] = ResQueueB.size();
-	ToBeAvail[resC] = ResQueueC.size();
-	ToBeAvail[resD] = ResQueueD.size();
-	ToBeAvail[resE] = ResQueueE.size();	
+	ToBeAvail = ResQueue.size();
 
 }
 
@@ -133,9 +68,6 @@ bool Manager::isSafe(){
 	// Tracks 
 	bool JobsFinished[MAX_THREADS] = { false, false, false, false, false, false, false, false, false, false };
 
-	// Set the current type
-	ResourceType type;
-
 	while (true) {
 
 		// Check all threads
@@ -145,40 +77,17 @@ bool Manager::isSafe(){
 			currentJob = Jobs[j];
 			
 			// Tracks which resource needs fit checks below
-			bool JobNeeds[MAX_RESOURCES] = { false, false, false, false, false };
+			bool JobNeeds = false;
 
 			// Check if this one is finished
 			if (JobsFinished[j] == false){
 
-				// Check all Resource Types
-				// t = type
-				// for (int t = 0; t < MAX_RESOURCES; t++){
-
-					// Set current iteration type
-					// type = (ResourceType)t;
-					// Single Resource Branch
-					// Removing resource checks other than resA for now.
-
-					type = resA;
-					int need = (currentJob->resourceNeeds[type] - currentJob->resourcesAcquired[type]);
-					if (  need <= ToBeAvail[type] ){
-						JobNeeds[type] = true;
-					}
-
-				// End Type loop
-				// }
-
-				// Determine if this job fits the criteria
-				/* Single Resource Branch
-				// Removing resource checks other than resA for now.
-
-				if (JobNeeds[resA] && JobNeeds[resB] && JobNeeds[resC]
-					&& JobNeeds[resD] && JobNeeds[resE]){
-					foundJob = currentJob;
+				int need = (currentJob->resourceNeeds - currentJob->resourcesAcquired);
+				if (  need <= ToBeAvail){
+					JobNeeds = true;
 				}
-				*/
 
-				if (JobNeeds[resA]){
+				if (JobNeeds){
 					foundJob = currentJob;
 					break;
 				}
@@ -206,18 +115,9 @@ bool Manager::isSafe(){
 			// Set this Job as Finished as not to process it again
 			JobsFinished[foundJob->ID] = true;
 
-			// Return its resources
-			// for (int t = 0; t < 5; t++){
-
-			// Set current iteration type
-			// type = (ResourceType)t;
-			type = resA;
-
 			// Return resources			
-			ToBeAvail[type] += currentJob->resourcesAcquired[type];
+			ToBeAvail += currentJob->resourcesAcquired;
 			
-			// }
-
 			foundJob = nullptr;
 			// End Else (Job found)
 		}
@@ -229,21 +129,21 @@ bool Manager::isSafe(){
 }
 
 // Acquire a resource, test if safe, and return the result
-bool Manager::wouldBeSafe(ResourceType type, int threadID){
+bool Manager::wouldBeSafe(int threadID){
 
 	bool result = false;
 	Job * currentJob = Jobs[threadID];
 	Resource tempRes;
 	// Only test resource acquisition if the resource store can handle it.
-	if (GetResourceStack(type)->size() > 0){
-		tempRes = GetResource(type);
+	if (GetResourceStack()->size() > 0){
+		tempRes = GetResource();
 		currentJob->resources.push(tempRes);
-		currentJob->resourcesAcquired[type]++;
+		currentJob->resourcesAcquired++;
 		// Would be safe if job finishes with that one resource.
 		if (currentJob->isFinished()){			
-			PutResource(type, tempRes);
+			PutResource(tempRes);
 			currentJob->resources.pop();
-			currentJob->resourcesAcquired[type]--;
+			currentJob->resourcesAcquired--;
 			return true;
 		}
 		// Test Safety of this scenario
@@ -251,9 +151,9 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 			result = true;
 		}
 		// Put resources back
-		PutResource(type, tempRes);
+		PutResource(tempRes);
 		currentJob->resources.pop();
-		currentJob->resourcesAcquired[type]--;
+		currentJob->resourcesAcquired--;
 
 	}
 	else {
@@ -265,11 +165,13 @@ bool Manager::wouldBeSafe(ResourceType type, int threadID){
 }
 
 
-void Manager::Begin(){
+void Manager::Begin(int numTimes = 10){
 
-	// Run forever...
-	int r = 0;
-	while (r < 5){
+	
+	int r = 1;
+	// Runs as many times as desired.
+	int runs = numTimes;
+	while (r <= runs){
 		// Create our Job classes
 		// Use a thread to start up the Jobs, which handle their own threads.
 		SpinUpJobs();
@@ -281,9 +183,9 @@ void Manager::Begin(){
 		cout << "Jobs started..." << endl;
 		Go();
 		PrintProgress();
-		cout << endl << "Sleeping for 3 seconds before next run...";
-		this_thread::sleep_for(std::chrono::milliseconds(3000));
-		// Increment r
+		cout << endl << "Sleeping for 2 seconds before next run...";
+		this_thread::sleep_for(std::chrono::milliseconds(2000));
+		// Increment r, comment out to run forever..
 		r++;
 	}
 
@@ -342,7 +244,6 @@ void Manager::Go(){
 void Manager::Request(int id){
 
 	// Function Level variables for this task
-	ResourceType currentType = resA;
 	string resName = "[BLANK]";
 	Job * job = Jobs[id];
 	bool workDone = false;
@@ -364,7 +265,7 @@ void Manager::Request(int id){
 			// we're currently in a safe state for all resources
 			if (isSafe()){
 
-				while (!wouldBeSafe(currentType, id)){
+				while (!wouldBeSafe(id)){
 					// This one isn't safe to proceed, let the next one waiting go.
 					cv.notify_one();
 					// Then this thread waits.
@@ -375,11 +276,11 @@ void Manager::Request(int id){
 				// No longer waiting
 				job->jobWaiting = false;
 				// Allocate the Resource to this Job				
-				Resource res = GetResource(currentType);
+				Resource res = GetResource();
 				resName = res.Name;
 				job->resources.push(res);
 				// Inc/Decement associated counters
-				job->resourcesAcquired[currentType]++;
+				job->resourcesAcquired++;
 
 
 				// End isSafe check
@@ -419,11 +320,11 @@ void Manager::Request(int id){
 	// currentType = (ResourceType)t;
 
 	// Return its resources
-	for (int r = job->resourcesAcquired[currentType]; r > 0; r--) {
-		GetResourceStack(currentType)->push(job->resources.top());
+	for (int r = job->resourcesAcquired; r > 0; r--) {
+		GetResourceStack()->push(job->resources.top());
 		resName = job->resources.top().Name;
 		job->resources.pop();
-		job->resourcesAcquired[currentType]--;
+		job->resourcesAcquired--;
 	}
 	PrintProgress();
 	// }	
@@ -483,15 +384,15 @@ void Manager::PrintProgress(){
 		if (currentJob->jobComplete)
 		{
 			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
-			cout << "\t " << currentJob->resourceNeeds[resA];
+			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds;
+			cout << "\t " << currentJob->resourceNeeds;
 			cout << "\t" << (currentJob->jobWaiting ? "Waiting.." : "") << "\t\t DONE!";			
 		}
 		else {
 
 			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds[resA];
-			cout << "\t " << currentJob->resourcesAcquired[resA];
+			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds;
+			cout << "\t " << currentJob->resourcesAcquired;
 			cout << "\t " << (currentJob->jobWaiting ? "Waiting.." : "");
 			
 		}
@@ -500,7 +401,7 @@ void Manager::PrintProgress(){
 	}
 
 	DrawBar(BarLine); 
-	cout << " Resource A: " << GetResourceStack(resA)->size() << " units";
+	cout << " Resource A: " << GetResourceStack()->size() << " units";
 	if (endTime != 0) {
 		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 		cout << "\t RunTime: " << runTime << " seconds";

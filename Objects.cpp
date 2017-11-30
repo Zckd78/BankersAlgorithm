@@ -18,11 +18,7 @@ Job::Job(int i) {
 
 		// Set Required Resources to complete 
 		// for each based on randomness
-		resourceNeeds[resA] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resB] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resC] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resD] = GetRand(1, MAX_CLAIMS);
-		resourceNeeds[resE] = GetRand(1, MAX_CLAIMS);
+		resourceNeeds = GetRand(1, MAX_CLAIMS);
 
 		// Define this Job
 		name = "Job " + to_string(i);
@@ -39,7 +35,7 @@ bool Job::isFinished(){
 
 	// If any resource is not finished acquiring, 
 	// return false.
-	if (resourcesAcquired[resA] < resourceNeeds[resA]){
+	if (resourcesAcquired < resourceNeeds){
 		return false;
 	}
 	// }
