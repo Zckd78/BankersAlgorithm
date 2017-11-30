@@ -13,6 +13,7 @@ using namespace std;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	// Manager class, which starts it all
 	Manager man;
 
 	// Start the Jobs!

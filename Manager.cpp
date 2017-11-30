@@ -165,52 +165,27 @@ bool Manager::wouldBeSafe(int threadID){
 }
 
 
-void Manager::Begin(int numTimes = 10){
+void Manager::Begin(){
 
-	
-	int r = 1;
-	// Runs as many times as desired.
-	int runs = numTimes;
-	while (r <= runs){
+	// Run forever...
+	while (true){
 		// Create our Job classes
 		// Use a thread to start up the Jobs, which handle their own threads.
 		SpinUpJobs();
 
-		// Set internal ExecCount
-		ExecCount = r;
+		// Increment number of time run.
+		ExecCount++;
 
 		// Run all the jobs
 		cout << "Jobs started..." << endl;
 		Go();
 		PrintProgress();
-		cout << endl << "Sleeping for 2 seconds before next run...";
-		this_thread::sleep_for(std::chrono::milliseconds(2000));
-		// Increment r, comment out to run forever..
-		r++;
+		PrintStats();
+		cout << endl << "Sleeping for 3 seconds before next run...";
+		this_thread::sleep_for(std::chrono::milliseconds(3000));
 	}
 
-	// Clear the screen
-	system("cls");
-
-	DrawBar(BarHeader);
-	cout << "  Statistics " << endl;
-	DrawBar(BarLine);
-
-	cout << "Jobs finished: " << to_string(JobsCompleted) << endl;
-	cout << "Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
-
-	// Calculate Average run time
-	int a = (ExecTimes.size() -1 );
-	double avg = 0.0;
-	while (a >= 0){
-		avg += ExecTimes.at(a);
-		a--;
-	}
-	avg = avg / ExecTimes.size();
-
-	cout << "Average Run time: " << avg << endl;
-	DrawBar(BarLine);
-	DrawBar(BarFooter);
+	
 
 }
 
@@ -237,8 +212,16 @@ void Manager::Go(){
 	for (int i = 0; i < MAX_THREADS; i++){
 		threads[i].join();			
 	}		
+
 	// Set end time
 	endTime = clock();
+
+	// Record Runtime
+	if (endTime != 0) {
+		double runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
+		ExecTimes.push_back(runTime);
+	}
+
 }
 
 void Manager::Request(int id){
@@ -367,13 +350,12 @@ void Manager::PrintProgress(){
 	int Acquired[MAX_THREADS];
 	double runTime;
 
-	// Clear some space
-	system("cls");
+	PrintTitle();
 
 	// Print the number of times run so far.
-	cout << endl << endl << "\t     <======[Run # " << ExecCount << "]======>"  << endl << endl;
+	cout << endl << "----------===========[ Run# " << ExecCount << " ]===========----------"  << endl;
 
-	DrawBar(BarHeader);
+	// Print out columns
 	cout << " Job # \t Needs \t Alloc \t Waiting? \t Finished?" << endl;
 	DrawBar(BarLine);
 
@@ -401,16 +383,66 @@ void Manager::PrintProgress(){
 	}
 
 	DrawBar(BarLine); 
-	cout << " Resource A: " << GetResourceStack()->size() << " units";
+	cout << " Resource: " << GetResourceStack()->size() << " units";
 	if (endTime != 0) {
 		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 		cout << "\t RunTime: " << runTime << " seconds";
 		ExecTimes.push_back(runTime);
+		cout << endl;
+		DrawBar(BarFooter);
+
+		// Pause for a second to see.
+		this_thread::sleep_for(std::chrono::milliseconds(1500));
 	}
+	else {
+		cout << endl;
+		DrawBar(BarFooter);
+
+	}
+}
+
+void Manager::PrintStats(){
+
+	// Clear the screen
+	system("cls");
+
+	PrintTitle();
+
+	cout << endl;
+	DrawBar(BarHeader);
+	cout << "  Statistics " << endl;
+	DrawBar(BarLine);
+
 	cout << endl;
 
+	cout << " Jobs finished: " << to_string(JobsCompleted) << endl;
+	cout << " Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
+
+	// Calculate Average run time
+	int a = (ExecTimes.size() - 1);
+	double avg = 0.0;
+	while (a >= 0){
+		avg += ExecTimes.at(a);
+		a--;
+	}
+	avg = avg / ExecTimes.size();
+
+	cout << " Average Run time: " << avg << endl;
+	cout << endl;
+	DrawBar(BarLine);
 	DrawBar(BarFooter);
+}
 
+void Manager::PrintTitle(){
 
+	// Clear some space
+	system("cls");
+
+	DrawBar(BarHeader);
+	// Print out project info	
+	cout << " Bankers Algorithm" << endl;
+	cout << " Final project for CSCI 144 - Fall 2017" << endl;
+	cout << " Written by Zachary Scott" << endl;
+	DrawBar(Manager::BarLine);
 
 }

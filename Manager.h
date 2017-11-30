@@ -66,7 +66,7 @@ public:
 	bool wouldBeSafe(int threadID);
 
 	// Job Related
-	void Begin(int);
+	void Begin();
 	void SpinUpJobs();
 	void Go();
 	void Request(int id);
@@ -74,5 +74,7 @@ public:
 	// Output Related
 	void PrintProgress();
 	void DrawBar(BarType);
+	void PrintStats();
+	void PrintTitle();
 };
 
