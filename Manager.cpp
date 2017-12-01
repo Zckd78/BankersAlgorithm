@@ -6,27 +6,21 @@
 // Constructor
 Manager::Manager()
 {
-	// Create our storage nodes.
-	for (int i = MAX_UNITS; i > 0; i--){
-		ResQueue.push(Resource("A" + to_string(i)));
+	// Initialize our ResourceStorage to 8 each
+	for (int i = 0; i < MAX_RESOURCES; i++){
+		AvailableResources[i] = MAX_UNITS;
 	}
 }
-
-Resource Manager::GetResource(){
-
-	Resource curr = ResQueue.front();
-	ResQueue.pop();
-	return curr;
-}
-
 
 // Update our ToBeAvail values to match current 
 // available resources.
 void Manager::SetupSafety(){
 
-	// Set ToBeAvail equal to the current 
-	// size of the Resource Queue.
-	ToBeAvail = ResQueue.size();
+	ToBeAvail[resA] = AvailableResources[resA];
+	ToBeAvail[resB] = AvailableResources[resB];
+	ToBeAvail[resC] = AvailableResources[resC];
+	ToBeAvail[resD] = AvailableResources[resD];
+	ToBeAvail[resE] = AvailableResources[resE];
 
 }
 
@@ -52,21 +46,29 @@ bool Manager::isSafe(){
 			currentJob = Jobs[j];
 			
 			// Tracks which resource needs fit checks below
-			bool JobNeeds = false;
+			bool JobNeeds[MAX_RESOURCES] = { false };
 
 			// Check if this one is finished
 			if (JobsFinished[j] == false){
 
-				int need = (currentJob->resourceNeeds - currentJob->resourcesAcquired);
-				if (  need <= ToBeAvail){
-					JobNeeds = true;
+				for (int t = 0; t < MAX_RESOURCES; t++){
+
+					ResourceType type = (ResourceType)t;
+
+					int need = (currentJob->resourceNeeds[type] - currentJob->resourcesAcquired[type]);
+					if (need <= ToBeAvail[type]){
+						JobNeeds[type] = true;
+					}
+
+					// End Resource Type check
 				}
 
-				if (JobNeeds){
+				// For all i, need[i][j] <= ToBeAvail[i]
+				if (JobNeeds[resA] && JobNeeds[resB] && JobNeeds[resC] && JobNeeds[resD] && JobNeeds[resE] ){
 					foundJob = currentJob;
 					break;
 				}
-
+				
 				// End Finished Check
 			}		
 
@@ -90,8 +92,12 @@ bool Manager::isSafe(){
 			// Set this Job as Finished as not to process it again
 			JobsFinished[foundJob->ID] = true;
 
-			// Return resources			
-			ToBeAvail += currentJob->resourcesAcquired;
+			// Return resources	for each type
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				ResourceType type = (ResourceType)t;
+				if (ToBeAvail[type] < MAX_UNITS)
+					ToBeAvail[type] += foundJob->resourcesAcquired[type];
+			}			
 			
 			foundJob = nullptr;
 			// End Else (Job found)
@@ -104,21 +110,20 @@ bool Manager::isSafe(){
 }
 
 // Acquire a resource, test if safe, and return the result
-bool Manager::wouldBeSafe(int threadID){
+bool Manager::wouldBeSafe(ResourceType type, int threadID){
 
 	bool result = false;
 	Job * currentJob = Jobs[threadID];
-	Resource tempRes;
 	// Only test resource acquisition if the resource store can handle it.
-	if (ResQueue.size() > 0){
-		tempRes = GetResource();
-		currentJob->resources.push(tempRes);
-		currentJob->resourcesAcquired++;
+	if (AvailableResources[type] > 0){
+		// Acquire a resource for now 
+		AvailableResources[type]--;
+		currentJob->resourcesAcquired[type]++;
 		// Would be safe if job finishes with that one resource.
-		if (currentJob->isFinished()){			
-			ResQueue.push(tempRes);
-			currentJob->resources.pop();
-			currentJob->resourcesAcquired--;
+		if (currentJob->isFinished()){	
+			// Put temp resource back
+			AvailableResources[type]++;
+			currentJob->resourcesAcquired[type]--;
 			return true;
 		}
 		// Test Safety of this scenario
@@ -126,9 +131,8 @@ bool Manager::wouldBeSafe(int threadID){
 			result = true;
 		}
 		// Put resources back
-		ResQueue.push(tempRes);
-		currentJob->resources.pop();
-		currentJob->resourcesAcquired--;
+		AvailableResources[type]++;
+		currentJob->resourcesAcquired[type]--;
 
 	}
 	else {
@@ -181,6 +185,10 @@ void Manager::Go(){
 		threads[i] = thread(&Manager::Request, this, i);
 	}
 
+
+	//
+	cv.notify_all();
+
 	// Join all threads
 	for (int i = 0; i < MAX_THREADS; i++){
 		threads[i].join();			
@@ -200,46 +208,69 @@ void Manager::Go(){
 void Manager::Request(int id){
 
 	// Function Level variables for this task
+	ResourceType type = resA;
 	Job * job = Jobs[id];
 	bool workDone = false;
 
 	// Create our lock object
-	unique_lock<mutex> ul(mux, defer_lock);
+	unique_lock<mutex> ul(mux,defer_lock);
+	ul.lock();
 
+	// Stop all threads until we're ready to start.
+	cv.wait(ul);
+
+	// Let's run!
+	ul.unlock();
 	// Keep acquiring resources until we've 
 	// gotten all 5 (A-E)
 	while (!job->isFinished())
-	{
+	{				
 
-		ul.lock();
+		for (int t = 0; t < MAX_RESOURCES; t++){
+			type = (ResourceType)t;						
 
-		// Check if have finished allocationg resources, and 
-		// we're currently in a safe state for all resources
-		if (isSafe()){
-
-			while (!wouldBeSafe(id)){
-				// This one isn't safe to proceed, let the next one waiting go.
-				cv.notify_one();
-				// Then this thread waits.
-				job->jobWaiting = true;
-				cv.wait(ul);					
+			// Move onto the next resource if we've filled this one
+			if (job->resourcesAcquired[type] == job->resourceNeeds[type])
+			{
+				continue;
 			}
+
+			ul.lock();
+
+			// Check if have finished allocationg resources, and 
+			// we're currently in a safe state for all resources
+			if (isSafe()){
+
+				while (!wouldBeSafe(type,id)){
+					// This one isn't safe to proceed, let the next one waiting go.
+					cv.notify_one();
+					// Then this thread waits.
+					job->jobWaiting = true;
+					cv.wait(ul);					
+				}
 				
-			// No longer waiting
-			job->jobWaiting = false;
-			// Allocate the Resource to this Job				
-			Resource res = GetResource();
-			job->resources.push(res);
-			// Inc/Decement associated counters
-			job->resourcesAcquired++;
+				// No longer waiting
+				job->jobWaiting = false;
 
+				// Allocate the Resource to this Job
+				AvailableResources[type]--;
+				job->resourcesAcquired[type]++;
 
-			// End isSafe check
+				PrintProgress();
+				// Sleep for 1/4 of a sec to allow the buffer to catch up
+				SleepingTime += 250;
+				this_thread::sleep_for(std::chrono::milliseconds(250));
+
+				// End isSafe check
+			}
+
+			cv.notify_one();
+			ul.unlock();
+
+			// End of Type loop
 		}
-		
-		ul.unlock();
 
-		// End of Type loop
+		// End of while not finished
 	}
 	
 	// Lock down so this job can "Run", and then release it's resources.
@@ -249,18 +280,21 @@ void Manager::Request(int id){
 	JobsCompleted++;
 	
 	// Calculate and update sleep time.
-	// Avg time = 200ms
-	int sleepTime = GetRand(100,300); 
+	// Avg time = 250ms
+	int sleepTime = GetRand(200,300); 
 	SleepingTime += sleepTime;
 	// Sleep for 100 milliseconds for each resource consumed in this job.
 	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
 
-	// Return its resources
-	for (int r = job->resourcesAcquired; r > 0; r--) {
-		ResQueue.push(job->resources.top());
-		job->resources.pop();
-		job->resourcesAcquired--;
+	for (int t = 0; t < MAX_RESOURCES; t++){
+		// Set Resource Type
+		type = (ResourceType)t;
+		// Return its resources		
+		AvailableResources[type] += job->resourcesAcquired[type];
+		// Job Resources now 0
+		job->resourcesAcquired[type] = 0;		
 	}
+
 	PrintProgress();
 
 	// This job finished, let the threads try to acquire resources.
@@ -275,16 +309,16 @@ void Manager::DrawBar(BarType type){
 	{
 	case Manager::BarHeader:
 		cout << "/";
-		for (int i = 0; i < 50; i++){ cout << "="; }
+		for (int i = 0; i < 70; i++){ cout << "="; }
 		cout << "\\" << endl;
 		break;
 	case Manager::BarFooter:
 		cout << "\\";
-		for (int i = 0; i < 50; i++){ cout << "="; }
+		for (int i = 0; i < 70; i++){ cout << "="; }
 		cout << "/" << endl;
 		break;
 	case Manager::BarLine:	
-		for (int i = 0; i < 52; i++){ cout << "-"; }
+		for (int i = 0; i < 72; i++){ cout << "-"; }
 		cout << endl;
 		break;
 	default:
@@ -298,16 +332,17 @@ void Manager::DrawBar(BarType type){
 // Prints out the current allocations of each Job/Thread, and remaining Resources
 void Manager::PrintProgress(){
 
+	ResourceType type;
 	int Acquired[MAX_THREADS];
 	double runTime;
 
 	PrintTitle();
 
 	// Print the number of times run so far.
-	cout << endl << "----------===========[ Run# " << ExecCount << " ]===========----------"  << endl;
+	cout << endl << "---------------================[ Run# " << ExecCount << " ]================---------------"  << endl;
 
 	// Print out columns
-	cout << " Job # \t Needs \t Alloc \t Waiting? \t Finished?" << endl;
+	cout << " Job # \t Needs \t\tAlloc \t\t Waiting? \t Finished?" << endl;
 	DrawBar(BarLine);
 
 	for (int i = 0; i < MAX_THREADS; i++){
@@ -317,16 +352,53 @@ void Manager::PrintProgress(){
 		if (currentJob->jobComplete)
 		{
 			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds;
-			cout << "\t " << currentJob->resourceNeeds;
-			cout << "\t" << (currentJob->jobWaiting ? "Waiting.." : "") << "\t\t DONE!";			
+			cout << " Job_" << currentJob->ID << " \t {";
+
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				// Set Resource Type
+				type = (ResourceType)t;
+				if (type == resE){
+					cout << currentJob->resourceNeeds[type];
+				}
+				else {
+					cout << currentJob->resourceNeeds[type] << ",";
+				}				
+			}
+			cout << "}\t{";
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				// Set Resource Type
+				type = (ResourceType)t;
+				cout << "::";
+				
+			}
+			cout << "}\t\t\t DONE!";			
 		}
 		else {
 
 			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t " << currentJob->resourceNeeds;
-			cout << "\t " << currentJob->resourcesAcquired;
-			cout << "\t " << (currentJob->jobWaiting ? "Waiting.." : "");
+			cout << " Job_" << currentJob->ID << " \t {";
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				// Set Resource Type
+				type = (ResourceType)t;
+				if (type == resE){
+					cout << currentJob->resourceNeeds[type];
+				}
+				else {
+					cout << currentJob->resourceNeeds[type] << ",";
+				}
+			}
+			cout << "}\t{";
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				// Set Resource Type
+				type = (ResourceType)t;
+				if (type == resE){
+					cout << currentJob->resourcesAcquired[type];
+				}
+				else {
+					cout << currentJob->resourcesAcquired[type] << ",";
+				}
+			}
+			cout << "}\t " << (currentJob->jobWaiting ? "Waiting.." : "");
 			
 		}
 		cout << endl;
@@ -334,7 +406,18 @@ void Manager::PrintProgress(){
 	}
 
 	DrawBar(BarLine); 
-	cout << " Resource: " << ResQueue.size() << " units";
+	cout << " Resources: {";
+	for (int t = 0; t < MAX_RESOURCES; t++){
+		// Set Resource Type
+		type = (ResourceType)t;
+		if (type == resE){
+			cout << AvailableResources[type];
+		}
+		else {
+			cout << AvailableResources[type] << ",";
+		}
+	}
+	cout << "} units";
 	if (endTime != 0) {
 		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
 		cout << "\t RunTime: " << runTime << " seconds";

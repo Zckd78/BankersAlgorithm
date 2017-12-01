@@ -4,22 +4,8 @@
 
 using namespace std;
 
-// <=======================================================================>
-//	Rresource class 
-//		Used to fill arrays of consumed resourced by 
-//		instances of the Job class.
-// <=======================================================================>
-class Resource
-{
-public:
-	// Give it a name for printing.
-	string Name = "";
-
-	Resource(){}
-	// Constructor to set the name upon creation.
-	Resource(string);
-
-};
+// Type enum for later use.
+enum ResourceType { resA, resB, resC, resD, resE, };
 
 // <=======================================================================>
 //	 Job object
@@ -30,13 +16,10 @@ class Job
 {
 public:
 	// Holds the number of resources acquired
-	int resourcesAcquired;
+	int resourcesAcquired[MAX_RESOURCES];
 	// Holds the initial requirements for each
-	int resourceNeeds;
+	int resourceNeeds[MAX_RESOURCES];
 	
-	// Stack of resources
-	stack<Resource> resources;
-
 	// Identifiers and Properties. 
 	string name;
 	bool jobComplete;
@@ -46,5 +29,4 @@ public:
 	// Constructor which completely configures a job to run.
 	Job(int);
 	bool isFinished();
-
 };

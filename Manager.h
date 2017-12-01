@@ -21,11 +21,11 @@ private:
 	// Resource Related
 	// ========== ========== ==========
 	
-	// Queue for resources
-	queue<Resource> ResQueue;
+	// Array for resources
+	int AvailableResources[MAX_RESOURCES];
 
 	// To Be Available counts for all 5 resources
-	int ToBeAvail;
+	int ToBeAvail[MAX_RESOURCES];
 
 	// ========== ========== ========== 
 	// Output / Tracking Related
@@ -53,14 +53,13 @@ public:
 	// Global Jobs Array
 	Job * Jobs[MAX_THREADS];
 
-	// Member Functions
+	// Constructor
 	Manager();
 	
-	// Resource Related
-	Resource GetResource();
+	// Resource Related	
 	void SetupSafety();
 	bool isSafe();
-	bool wouldBeSafe(int threadID);
+	bool wouldBeSafe(ResourceType type, int threadID);
 
 	// Job Related
 	void Begin();
