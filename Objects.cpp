@@ -2,13 +2,13 @@
 #include "Objects.h"
 
 // Empty Constructor
-Job::Job(){
+Process::Process(){
 
 }
 
-// Constructor which gives this Job and ID, and sets the 
+// Constructor which gives this Process and ID, and sets the 
 // resource requirements
-Job::Job(int i) {
+Process::Process(int i) {
 
 	// Set Required Resources to complete 
 	// based on randomness
@@ -17,15 +17,15 @@ Job::Job(int i) {
 		resourcesAcquired[i] = 0;
 	}
 
-	// Define this Job
-	name = "Job " + to_string(i);
+	// Define this Process
+	name = "Process " + to_string(i);
 	ID = i;
-	jobComplete = false;
+	Complete = false;
 }
 
 
 // Checks if all resource needs have been met.
-bool Job::isFinished(){
+bool Process::isFinished(){
 
 	ResourceType type;
 	for (int t = 0; t < MAX_RESOURCES; t++){
@@ -40,7 +40,7 @@ bool Job::isFinished(){
 	}
 
 	// Finished looping with all resource needs fulfilled, return true.
-	jobComplete = true;
+	Complete = true;
 	return true;
 
 }

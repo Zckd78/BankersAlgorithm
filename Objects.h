@@ -8,11 +8,11 @@ using namespace std;
 enum ResourceType { resA, resB, resC, resD, resE, };
 
 // <=======================================================================>
-//	 Job object
+//	 Process object
 //		Holds the Resources needed, acquired so far, and object identifiers.
 //		in our virtual system
 // <=======================================================================>
-class Job
+class Process
 {
 public:
 	// Holds the number of resources acquired
@@ -22,11 +22,11 @@ public:
 	
 	// Identifiers and Properties. 
 	string name;
-	bool jobComplete;
-	bool jobWaiting;
+	bool Complete;
+	bool Waiting;
 	int ID;
-	Job();
-	// Constructor which completely configures a job to run.
-	Job(int);
+	Process();
+	// Constructor which completely configures a process to run.
+	Process(int);
 	bool isFinished();
 };

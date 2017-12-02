@@ -10,10 +10,10 @@ class Manager
 private:
 
 	// ========== ========== ========== 
-	// Jobs Related
+	// Processes Related
 	// ========== ========== ========== 
 
-	// Thread for starting the jobs
+	// Thread for starting the processs
 	thread threads[MAX_THREADS];
 	int ThreadsFinished[MAX_THREADS];
 	
@@ -34,8 +34,8 @@ private:
 	// # times run
 	int ExecCount = 0;
 
-	// Tracking variables for jobs to update
-	int JobsCompleted = 0;
+	// Tracking variables for processs to update
+	int ProcessesCompleted = 0;
 	int SleepingTime = 0;
 
 	// Tracking execution time
@@ -51,8 +51,8 @@ public:
 	condition_variable cv;
 	mutex mux;
 
-	// Global Jobs Array
-	Job * Jobs[MAX_THREADS];
+	// Global Processes Array
+	Process * Processes[MAX_THREADS];
 
 	// Constructor
 	Manager();
@@ -62,9 +62,9 @@ public:
 	bool isSafe();
 	bool wouldBeSafe(ResourceType type, int threadID);
 
-	// Job Related
+	// Process Related
 	void Begin();
-	void SpinUpJobs();
+	void SpinUpProcesses();
 	void Go();
 	void DoRequests(int id);
 

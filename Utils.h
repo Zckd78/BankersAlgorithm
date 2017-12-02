@@ -21,7 +21,7 @@ static int GetRand(int low, int high){
 	std::uniform_int_distribution<int> uni(low, high);
 
 	// Adding this part myself. Sometimes it still returns a 0 (zero)
-	// We can't have a job requiring zero resources.
+	// We can't have a process requiring zero resources.
 	while (retVal == 0)
 		retVal = uni(rng);
 	
