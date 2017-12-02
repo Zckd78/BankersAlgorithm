@@ -15,7 +15,7 @@ private:
 
 	// Thread for starting the jobs
 	thread threads[MAX_THREADS];
-
+	int ThreadsFinished[MAX_THREADS];
 	
 	// ========== ========== ========== 
 	// Resource Related
@@ -39,7 +39,8 @@ private:
 	int SleepingTime = 0;
 
 	// Tracking execution time
-	clock_t startTime, endTime;
+	clock_t BeginTime;
+	clock_t StartTimes[MAX_THREADS];
 	vector<double> ExecTimes;
 
 public:
@@ -65,7 +66,7 @@ public:
 	void Begin();
 	void SpinUpJobs();
 	void Go();
-	void Request(int id);
+	void DoRequests(int id);
 
 	// Output Related
 	void PrintProgress();

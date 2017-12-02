@@ -7,8 +7,10 @@
 Manager::Manager()
 {
 	// Initialize our ResourceStorage to 8 each
+	// Also set Thread completion counts to 0
 	for (int i = 0; i < MAX_RESOURCES; i++){
 		AvailableResources[i] = MAX_UNITS;
+		ThreadsFinished[i] = 0;
 	}
 }
 
@@ -148,6 +150,9 @@ void Manager::Begin(){
 
 	// Run forever...
 	while (true){
+		
+		BeginTime = clock();
+		
 		// Create our Job classes
 		// Use a thread to start up the Jobs, which handle their own threads.
 		SpinUpJobs();
@@ -156,12 +161,9 @@ void Manager::Begin(){
 		ExecCount++;
 
 		// Run all the jobs
-		cout << "Jobs started..." << endl;
 		Go();
 		PrintProgress();
-		PrintStats();
-		cout << endl << "Sleeping for 3 seconds before next run...";
-		this_thread::sleep_for(std::chrono::milliseconds(3000));
+		PrintStats();		
 	}	
 
 }
@@ -176,156 +178,167 @@ void Manager::SpinUpJobs(){
 
 void Manager::Go(){
 
-	// Set clocks
-	endTime = 0;
-	startTime = clock();
-
 	// Setting up a system to stop running jobs.
 	for (int i = 0; i < MAX_THREADS; i++){
-		threads[i] = thread(&Manager::Request, this, i);
+		threads[i] = thread(&Manager::DoRequests, this, i);
 	}
 
-
-	//
+	// Start all the threads
 	cv.notify_all();
 
 	// Join all threads
 	for (int i = 0; i < MAX_THREADS; i++){
 		threads[i].join();			
 	}		
-
-	// Set end time
-	endTime = clock();
-
-	// Record Runtime
-	if (endTime != 0) {
-		double runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
-		ExecTimes.push_back(runTime);
-	}
-
+	
 }
 
-void Manager::Request(int id){
+void Manager::DoRequests(int id){
 
-	// Function Level variables for this task
-	ResourceType type = resA;
-	Job * job = Jobs[id];
-	bool workDone = false;
+	// This thread will continue to acquire resources until finished,
+	// then it will reset the associated Job object, and do it all over again...
+	while (true){
 
-	// Create our lock object
-	unique_lock<mutex> ul(mux,defer_lock);
-	ul.lock();
+		// Start the clock
+		StartTimes[id] = clock();
 
-	// Stop all threads until we're ready to start.
-	cv.wait(ul);
+		// Function Level variables for this task
+		ResourceType type = resA;
+		Job * job = Jobs[id];
+		bool workDone = false;
+		long printTime = 62.5;
 
-	// Let's run!
-	ul.unlock();
-	// Keep acquiring resources until we've 
-	// gotten all 5 (A-E)
-	while (!job->isFinished())
-	{				
+		// Create our lock object
+		unique_lock<mutex> ul(mux, defer_lock);
+		ul.lock();
 
-		for (int t = 0; t < MAX_RESOURCES; t++){
-			type = (ResourceType)t;						
+		// Stop all threads until we're ready to start.
+		cv.wait(ul);
 
-			// Move onto the next resource if we've filled this one
-			if (job->resourcesAcquired[type] == job->resourceNeeds[type])
-			{
-				continue;
-			}
+		// Let's run!
+		ul.unlock();
+		// Keep acquiring resources until we've 
+		// gotten all 5 (A-E)
+		while (!job->isFinished())
+		{
+			// Try to acquire one of each resource.
+			for (int t = 0; t < MAX_RESOURCES; t++){
+				type = (ResourceType)t;
 
-			ul.lock();
-
-			// Check if have finished allocationg resources, and 
-			// we're currently in a safe state for all resources
-			if (isSafe()){
-
-				while (!wouldBeSafe(type,id)){
-					// This one isn't safe to proceed, let the next one waiting go.
-					cv.notify_one();
-					// Then this thread waits.
-					job->jobWaiting = true;
-					cv.wait(ul);					
+				// Move onto the next resource if we've filled this one
+				if (job->resourcesAcquired[type] == job->resourceNeeds[type])
+				{
+					continue;
 				}
-				
-				// No longer waiting
-				job->jobWaiting = false;
 
-				// Allocate the Resource to this Job
-				AvailableResources[type]--;
-				job->resourcesAcquired[type]++;
+				ul.lock();
 
-				PrintProgress();
-				// Sleep for 1/4 of a sec to allow the buffer to catch up
-				SleepingTime += 250;
-				this_thread::sleep_for(std::chrono::milliseconds(250));
+				// Check if have finished allocationg resources, and 
+				// we're currently in a safe state for all resources
+				if (isSafe()){
 
-				// End isSafe check
+					while (!wouldBeSafe(type, id)){
+						// This one isn't safe to proceed, let the next one waiting go.
+						cv.notify_one();
+						// Then this thread waits.
+						job->jobWaiting = true;
+						cv.wait(ul);
+					}
+
+					// No longer waiting
+					job->jobWaiting = false;
+
+					// Allocate the Resource to this Job
+					AvailableResources[type]--;
+					job->resourcesAcquired[type]++;
+
+					PrintProgress();
+					// Sleep for 1/16 of a sec to allow the buffer to catch up
+					SleepingTime += printTime;
+					this_thread::sleep_for(std::chrono::milliseconds(printTime));
+					// Remove sleep time from calculations for RunTime
+					StartTimes[id] -= printTime;
+
+					// End isSafe check
+				}
+
+				// Let the next thread grab a resource
+				cv.notify_one();
+				ul.unlock();
+
+				// End of Type loop
 			}
 
-			cv.notify_one();
-			ul.unlock();
-
-			// End of Type loop
+			// End of while not finished
 		}
 
-		// End of while not finished
+		// Lock down so this job can "Run", and then release its resources.
+		ul.lock();
+
+		// Notify that a job finished.
+		JobsCompleted++;
+
+		// Calculate and update sleep time.
+		// Avg time = 250ms
+		int sleepTime = GetRand(200, 300);
+		SleepingTime += sleepTime;
+		// Sleep for 100 milliseconds for each resource consumed in this job.
+		this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+		// Remove sleep time from calculations for RunTime
+		StartTimes[id] -= sleepTime;
+
+
+		for (int t = 0; t < MAX_RESOURCES; t++){
+			// Set Resource Type
+			type = (ResourceType)t;
+			// Return its resources		
+			AvailableResources[type] += job->resourcesAcquired[type];
+			// Job Resources now 0
+			job->resourcesAcquired[type] = 0;
+		}
+
+		PrintProgress();
+
+		// This job finished, let the threads try to acquire resources.
+		ul.unlock();
+		cv.notify_all();
+
+		// Update Times this thread has completed
+		ThreadsFinished[id]++;
+
+		// Calculate Runtime
+		ExecTimes.push_back((double)(clock() - StartTimes[id]) / CLOCKS_PER_SEC);
+		
+		// Reset this job, and run again.
+		Jobs[id] = new Job(id);
+
+		// End While(true)
 	}
-	
-	// Lock down so this job can "Run", and then release it's resources.
-	ul.lock();
 
-	// Notify that a job finished.
-	JobsCompleted++;
-	
-	// Calculate and update sleep time.
-	// Avg time = 250ms
-	int sleepTime = GetRand(200,300); 
-	SleepingTime += sleepTime;
-	// Sleep for 100 milliseconds for each resource consumed in this job.
-	this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-
-	for (int t = 0; t < MAX_RESOURCES; t++){
-		// Set Resource Type
-		type = (ResourceType)t;
-		// Return its resources		
-		AvailableResources[type] += job->resourcesAcquired[type];
-		// Job Resources now 0
-		job->resourcesAcquired[type] = 0;		
-	}
-
-	PrintProgress();
-
-	// This job finished, let the threads try to acquire resources.
-	ul.unlock();
-	cv.notify_all();		
 }
 
+// Draw horizontal text for output
 void Manager::DrawBar(BarType type){
-
 
 	switch (type)
 	{
 	case Manager::BarHeader:
 		cout << "/";
-		for (int i = 0; i < 70; i++){ cout << "="; }
+		for (int i = 0; i < 75; i++){ cout << "="; }
 		cout << "\\" << endl;
 		break;
 	case Manager::BarFooter:
 		cout << "\\";
-		for (int i = 0; i < 70; i++){ cout << "="; }
+		for (int i = 0; i < 75; i++){ cout << "="; }
 		cout << "/" << endl;
 		break;
 	case Manager::BarLine:	
-		for (int i = 0; i < 72; i++){ cout << "-"; }
+		for (int i = 0; i < 77; i++){ cout << "-"; }
 		cout << endl;
 		break;
 	default:
 		break;		
 	}
-
-
 
 }
 
@@ -333,79 +346,25 @@ void Manager::DrawBar(BarType type){
 void Manager::PrintProgress(){
 
 	ResourceType type;
-	int Acquired[MAX_THREADS];
 	double runTime;
 
-	PrintTitle();
+	PrintTitle();	
+	double ExecTime = ((double)(clock() - BeginTime) / CLOCKS_PER_SEC);
+	cout << " Time spent executing: " << ExecTime << "s";
+	cout << "\t\t\tTime spent sleeping: " << to_string(SleepingTime) << "ms" << endl;
 
-	// Print the number of times run so far.
-	cout << endl << "---------------================[ Run# " << ExecCount << " ]================---------------"  << endl;
-
-	// Print out columns
-	cout << " Job # \t Needs \t\tAlloc \t\t Waiting? \t Finished?" << endl;
-	DrawBar(BarLine);
-
-	for (int i = 0; i < MAX_THREADS; i++){
-		// Set current job
-		Job * currentJob = Jobs[i];
-		
-		if (currentJob->jobComplete)
-		{
-			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t {";
-
-			for (int t = 0; t < MAX_RESOURCES; t++){
-				// Set Resource Type
-				type = (ResourceType)t;
-				if (type == resE){
-					cout << currentJob->resourceNeeds[type];
-				}
-				else {
-					cout << currentJob->resourceNeeds[type] << ",";
-				}				
-			}
-			cout << "}\t{";
-			for (int t = 0; t < MAX_RESOURCES; t++){
-				// Set Resource Type
-				type = (ResourceType)t;
-				cout << "::";
-				
-			}
-			cout << "}\t\t\t DONE!";			
-		}
-		else {
-
-			// Display Job ID, and needs.
-			cout << " Job_" << currentJob->ID << " \t {";
-			for (int t = 0; t < MAX_RESOURCES; t++){
-				// Set Resource Type
-				type = (ResourceType)t;
-				if (type == resE){
-					cout << currentJob->resourceNeeds[type];
-				}
-				else {
-					cout << currentJob->resourceNeeds[type] << ",";
-				}
-			}
-			cout << "}\t{";
-			for (int t = 0; t < MAX_RESOURCES; t++){
-				// Set Resource Type
-				type = (ResourceType)t;
-				if (type == resE){
-					cout << currentJob->resourcesAcquired[type];
-				}
-				else {
-					cout << currentJob->resourcesAcquired[type] << ",";
-				}
-			}
-			cout << "}\t " << (currentJob->jobWaiting ? "Waiting.." : "");
-			
-		}
-		cout << endl;
-
+	// Calculate Average run time
+	int a = (ExecTimes.size() - 1);
+	double avg = 0.0;
+	while (a >= 0){
+		avg += ExecTimes.at(a);
+		a--;
 	}
+	avg = avg / ExecTimes.size();
 
-	DrawBar(BarLine); 
+	
+	cout << " Average thread run time: " << avg << "s" << endl;
+	
 	cout << " Resources: {";
 	for (int t = 0; t < MAX_RESOURCES; t++){
 		// Set Resource Type
@@ -418,21 +377,54 @@ void Manager::PrintProgress(){
 		}
 	}
 	cout << "} units";
-	if (endTime != 0) {
-		runTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
-		cout << "\t RunTime: " << runTime << " seconds";
-		ExecTimes.push_back(runTime);
-		cout << endl;
-		DrawBar(BarFooter);
+	cout << "\t\t\tJobs finished: " << to_string(JobsCompleted) << endl;
 
-		// Pause for a second to see.
-		this_thread::sleep_for(std::chrono::milliseconds(1500));
-	}
-	else {
+
+	DrawBar(BarHeader);
+	// Print out columns
+	cout << " Thread# \tNeeds \t\tAlloc \t\t Waiting? \tCompleted#" << endl;
+	DrawBar(BarLine);
+
+	for (int i = 0; i < MAX_THREADS; i++){
+		// Set current job
+		Job * currentJob = Jobs[i];
+		
+		
+
+		// Display Job ID, and needs.
+		cout << " Thread_" << currentJob->ID << "\t{";
+		for (int t = 0; t < MAX_RESOURCES; t++){
+			// Set Resource Type
+			type = (ResourceType)t;
+			if (type == resE){
+				cout << currentJob->resourceNeeds[type];
+			}
+			else {
+				cout << currentJob->resourceNeeds[type] << ",";
+			}
+		}
+		cout << "}\t{";
+		for (int t = 0; t < MAX_RESOURCES; t++){
+			// Set Resource Type
+			type = (ResourceType)t;
+			if (type == resE){
+				cout << currentJob->resourcesAcquired[type];
+			}
+			else {
+				cout << currentJob->resourcesAcquired[type] << ",";
+			}
+		}
+		cout << "}\t " << (currentJob->jobWaiting ? "Waiting.." : "\t");
+		cout << "\t" << ThreadsFinished[i] << (currentJob->jobComplete ? "++" : "");
+			
+		
 		cout << endl;
-		DrawBar(BarFooter);
 
 	}
+
+	DrawBar(BarLine); 
+	DrawBar(BarFooter);
+	
 }
 
 void Manager::PrintStats(){
@@ -443,28 +435,7 @@ void Manager::PrintStats(){
 	PrintTitle();
 
 	cout << endl;
-	DrawBar(BarHeader);
-	cout << "  Statistics " << endl;
-	DrawBar(BarLine);
-
-	cout << endl;
-
-	cout << " Jobs finished: " << to_string(JobsCompleted) << endl;
-	cout << " Time spent Sleeping: " << to_string(SleepingTime) << "ms" << endl;
-
-	// Calculate Average run time
-	int a = (ExecTimes.size() - 1);
-	double avg = 0.0;
-	while (a >= 0){
-		avg += ExecTimes.at(a);
-		a--;
-	}
-	avg = avg / ExecTimes.size();
-
-	cout << " Average Run time: " << avg << endl;
-	cout << endl;
-	DrawBar(BarLine);
-	DrawBar(BarFooter);
+	
 }
 
 void Manager::PrintTitle(){
